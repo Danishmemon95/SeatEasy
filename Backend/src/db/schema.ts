@@ -1,9 +1,10 @@
 import { pgTable, serial, varchar, boolean, date, text, timestamp, integer, pgEnum, decimal, unique } from "drizzle-orm/pg-core";
 
 export const seatCategoryEnum = pgEnum("seat_category", ["gold", "platinum", "sofa"]);
-export const userRolesEnum = pgEnum("user_roles", ["organizer", "buyer"]);
+export const userRolesEnum = pgEnum("user_roles", ["admin", "organizer", "buyer"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["pending", "confirmed", "cancelled"]);
 export const seatStatusEnum = pgEnum("seat_status", ["available", "held", "booked"]);
+export const applicationStatusEnum = pgEnum("application_status", ["pending", "approved", "rejected"]);
 
 export const users = pgTable("users", {
     id: serial("id").primaryKey(),
@@ -78,3 +79,14 @@ export const screeningSeats = pgTable("screening_seats", {
 }, (table) => [
     unique("screening_seat_unique").on(table.screeningId, table.seatId)
 ])
+
+export const orgApplications = pgTable("org_applications", {
+    id: serial("id").primaryKey(),
+    requesterId: integer("requester_id").notNull().references(() => users.id),
+    description: text("description").notNull(),
+    status: applicationStatusEnum("status").notNull().default("pending"),
+    approverId: integer("approver_id").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+})

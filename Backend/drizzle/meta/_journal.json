@@ -22,6 +22,13 @@
       "when": 1788177218631,
       "tag": "0002_puzzling_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788858938980,
+      "tag": "0003_stormy_vengeance",
+      "breakpoints": true
     }
   ]
 }

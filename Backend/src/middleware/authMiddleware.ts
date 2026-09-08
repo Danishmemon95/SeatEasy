@@ -11,7 +11,7 @@ declare global {
                 id: number;
                 username: string;
                 email: string;
-                role: "organizer" | "buyer";
+                role: "organizer" | "buyer" | "admin";
                 isVerified: boolean;
             }
         }
