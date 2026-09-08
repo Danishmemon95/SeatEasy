@@ -1,4 +1,4 @@
-export type UserRole = 'organizer' | 'buyer';
+export type UserRole = 'organizer' | 'buyer' | 'admin';
 
 export interface User {
   id: number;
@@ -19,14 +19,34 @@ export interface RegisterPayload {
   password: string;
 }
 
+export interface VerifyEmailPayload {
+  token: string;
+}
+
 export interface AuthResponse {
   message: string;
   user?: User;
 }
 
+export interface CheckAuthResponse {
+  success: boolean;
+  message: string;
+  user: User;
+}
+
+export interface VerifyResponse {
+  message: string;
+  user: User;
+}
+
+export interface ApiErrorResponse {
+  message?: string;
+}
+
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   loading: boolean;
   error: string | null;
   successMessage: string | null;

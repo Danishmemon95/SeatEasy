@@ -64,6 +64,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            required={required}
             disabled={disabled}
             aria-invalid={!!error}
             aria-describedby={error ? errorId : helperText ? helperId : undefined}

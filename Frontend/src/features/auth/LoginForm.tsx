@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, Eye, EyeOff } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { loginUser, clearAuthError } from './authSlice';
+import { Eye, EyeOff } from 'lucide-react';
+import { useLoginMutation, getRtkErrorMessage } from '../../api/authApi';
+import { validateEmail, validatePassword, sanitizeInput } from '../../utils/validation';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
@@ -10,37 +10,55 @@ export interface LoginFormProps {
   onSwitchToRegister: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
-  const dispatch = useAppDispatch();
-  const { loading, error } = useAppSelector((state) => state.auth);
+export const LoginForm: React.FC<LoginFormProps> = () => {
+  const [login, { isLoading, error: rtkError, reset }] = useLoginMutation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string }>({});
+  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({});
 
   const validate = () => {
-    const errors: { email?: string; password?: string } = {};
-    if (!email.trim()) {
-      errors.email = 'Please enter your email address';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Please enter a valid email address';
-    }
+    const emailErr = validateEmail(email);
+    const passErr = validatePassword(password);
 
-    if (!password) {
-      errors.password = 'Please enter your password';
-    }
+    const errors: { email?: string; password?: string } = {};
+    if (emailErr) errors.email = emailErr;
+    if (passErr) errors.password = passErr;
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    if (field === 'email') {
+      const err = validateEmail(email);
+      setFormErrors((prev) => ({ ...prev, email: err || undefined }));
+    } else if (field === 'password') {
+      const err = validatePassword(password);
+      setFormErrors((prev) => ({ ...prev, password: err || undefined }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ email: true, password: true });
+
     if (!validate()) return;
 
-    dispatch(loginUser({ email, password }));
+    try {
+      await login({
+        email: sanitizeInput(email).toLowerCase(),
+        password,
+      }).unwrap();
+    } catch {
+      // RTK Query maintains the error state accessible via rtkError
+    }
   };
+
+  const errorMessage = rtkError ? getRtkErrorMessage(rtkError) : null;
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -56,18 +74,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       </div>
 
       {/* Calm Error Alert */}
-      {error && (
+      {errorMessage && (
         <Alert
           variant="danger"
           title="Unable to sign in"
-          onClose={() => dispatch(clearAuthError())}
+          onClose={() => reset()}
         >
-          {error}
+          {errorMessage}
         </Alert>
       )}
 
-      {/* Form — no leading icons per §9.2 (labels make type clear) */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Form with Real-time & On-blur Validations */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <Input
           label="Email address"
           type="email"
@@ -76,10 +94,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
-            if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: undefined }));
-            if (error) dispatch(clearAuthError());
+            if (formErrors.email) {
+              setFormErrors((prev) => ({ ...prev, email: undefined }));
+            }
+            if (rtkError) reset();
           }}
-          error={formErrors.email}
+          onBlur={() => handleBlur('email')}
+          error={touched.email ? formErrors.email : undefined}
           required
         />
 
@@ -92,9 +113,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
-              if (formErrors.password) setFormErrors((prev) => ({ ...prev, password: undefined }));
-              if (error) dispatch(clearAuthError());
+              if (formErrors.password) {
+                setFormErrors((prev) => ({ ...prev, password: undefined }));
+              }
+              if (rtkError) reset();
             }}
+            onBlur={() => handleBlur('password')}
             rightAdornment={
               <button
                 type="button"
@@ -105,7 +129,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             }
-            error={formErrors.password}
+            error={touched.password ? formErrors.password : undefined}
             required
           />
           <div className="flex justify-end mt-0.5">
@@ -118,18 +142,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           </div>
         </div>
 
-        {/* Primary CTA — verb-first label, no product name, no directional arrow on submit */}
+        {/* Primary CTA */}
         <Button
           type="submit"
           variant="primary"
           size="lg"
-          isLoading={loading}
+          isLoading={isLoading}
+          disabled={isLoading}
           className="w-full mt-2"
         >
           Sign in
         </Button>
       </form>
-
     </div>
   );
 };

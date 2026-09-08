@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { registerUser, clearAuthError, clearSuccessMessage } from './authSlice';
+import { Eye, EyeOff, CheckCircle2, Check, X } from 'lucide-react';
+import { useRegisterMutation, getRtkErrorMessage } from '../../api/authApi';
+import {
+  validateUsername,
+  validateEmail,
+  validatePassword,
+  evaluatePasswordStrength,
+  sanitizeInput,
+} from '../../utils/validation';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
@@ -11,50 +17,78 @@ export interface RegisterFormProps {
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
-  const dispatch = useAppDispatch();
-  const { loading, error, successMessage } = useAppSelector((state) => state.auth);
+  const [registerUser, { isLoading, error: rtkError, reset }] = useRegisterMutation();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [successResponse, setSuccessResponse] = useState<string | null>(null);
+
   const [formErrors, setFormErrors] = useState<{
     username?: string;
     email?: string;
     password?: string;
   }>({});
 
+  const [touched, setTouched] = useState<{
+    username?: boolean;
+    email?: boolean;
+    password?: boolean;
+  }>({});
+
+  const passwordEvaluation = evaluatePasswordStrength(password);
+
   const validate = () => {
+    const userErr = validateUsername(username);
+    const emailErr = validateEmail(email);
+    const passErr = validatePassword(password);
+
     const errors: { username?: string; email?: string; password?: string } = {};
-
-    if (!username.trim()) {
-      errors.username = 'Please enter a username';
-    } else if (username.trim().length < 3) {
-      errors.username = 'Username must be at least 3 characters';
-    }
-
-    if (!email.trim()) {
-      errors.email = 'Please enter your email address';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-
-    if (!password) {
-      errors.password = 'Please enter a password';
-    } else if (password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
-    }
+    if (userErr) errors.username = userErr;
+    if (emailErr) errors.email = emailErr;
+    if (passErr) errors.password = passErr;
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  const handleBlur = (field: 'username' | 'email' | 'password') => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    if (field === 'username') {
+      const err = validateUsername(username);
+      setFormErrors((prev) => ({ ...prev, username: err || undefined }));
+    } else if (field === 'email') {
+      const err = validateEmail(email);
+      setFormErrors((prev) => ({ ...prev, email: err || undefined }));
+    } else if (field === 'password') {
+      const err = validatePassword(password);
+      setFormErrors((prev) => ({ ...prev, password: err || undefined }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ username: true, email: true, password: true });
+
     if (!validate()) return;
 
-    dispatch(registerUser({ username, email, password }));
+    try {
+      const result = await registerUser({
+        username: sanitizeInput(username),
+        email: sanitizeInput(email).toLowerCase(),
+        password,
+      }).unwrap();
+
+      setSuccessResponse(
+        result.message || 'User registered successfully. Please check your email to verify your account.'
+      );
+    } catch {
+      // RTK Query error handles rejection state
+    }
   };
+
+  const errorMessage = rtkError ? getRtkErrorMessage(rtkError) : null;
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -70,16 +104,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
       </div>
 
       {/* Success Banner */}
-      {successMessage ? (
+      {successResponse ? (
         <div className="flex flex-col gap-4 p-5 rounded-[10px] border border-[var(--success)]/20 bg-[var(--success-subtle)] text-[var(--ink)]">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-[var(--success)] shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
               <h3 className="font-sans font-medium text-[15px] text-[var(--ink)]">
-                Registration successful
+                Account Created Successfully
               </h3>
               <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed">
-                {successMessage}
+                {successResponse}
               </p>
             </div>
           </div>
@@ -89,7 +123,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
             variant="secondary"
             size="md"
             onClick={() => {
-              dispatch(clearSuccessMessage());
+              setSuccessResponse(null);
               onSwitchToLogin();
             }}
             className="w-full mt-1"
@@ -99,19 +133,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
         </div>
       ) : (
         <>
-          {/* Calm Error Alert */}
-          {error && (
+          {/* Server Error Alert */}
+          {errorMessage && (
             <Alert
               variant="danger"
               title="Unable to create account"
-              onClose={() => dispatch(clearAuthError())}
+              onClose={() => reset()}
             >
-              {error}
+              {errorMessage}
             </Alert>
           )}
 
-          {/* Form — no leading icons per §9.2 */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <Input
               label="Username"
               type="text"
@@ -120,10 +154,13 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
               value={username}
               onChange={(e) => {
                 setUsername(e.target.value);
-                if (formErrors.username) setFormErrors((prev) => ({ ...prev, username: undefined }));
-                if (error) dispatch(clearAuthError());
+                if (formErrors.username) {
+                  setFormErrors((prev) => ({ ...prev, username: undefined }));
+                }
+                if (rtkError) reset();
               }}
-              error={formErrors.username}
+              onBlur={() => handleBlur('username')}
+              error={touched.username ? formErrors.username : undefined}
               required
             />
 
@@ -135,50 +172,110 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: undefined }));
-                if (error) dispatch(clearAuthError());
+                if (formErrors.email) {
+                  setFormErrors((prev) => ({ ...prev, email: undefined }));
+                }
+                if (rtkError) reset();
               }}
-              error={formErrors.email}
+              onBlur={() => handleBlur('email')}
+              error={touched.email ? formErrors.email : undefined}
               required
             />
 
-            <Input
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (formErrors.password) setFormErrors((prev) => ({ ...prev, password: undefined }));
-                if (error) dispatch(clearAuthError());
-              }}
-              rightAdornment={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--paper-sunken)] cursor-pointer transition-[background-color,color] duration-[150ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              }
-              helperText="Must be 8+ characters with numbers or symbols"
-              error={formErrors.password}
-              required
-            />
+            <div className="flex flex-col gap-2">
+              <Input
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Create a strong password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (formErrors.password) {
+                    setFormErrors((prev) => ({ ...prev, password: undefined }));
+                  }
+                  if (rtkError) reset();
+                }}
+                onBlur={() => handleBlur('password')}
+                rightAdornment={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--paper-sunken)] cursor-pointer transition-[background-color,color] duration-[150ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                }
+                error={touched.password ? formErrors.password : undefined}
+                required
+              />
 
-            {/* Primary CTA — verb-first label, no product name, no directional arrow */}
+              {/* Real-time Password Strength Meter */}
+              {password.length > 0 && (
+                <div className="flex flex-col gap-2 p-3 rounded-[6px] bg-[var(--paper-sunken)] border border-[var(--rule)]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--ink-muted)] font-medium">Security strength:</span>
+                    <span
+                      className="font-medium capitalize"
+                      style={{ color: passwordEvaluation.color }}
+                    >
+                      {passwordEvaluation.label}
+                    </span>
+                  </div>
+
+                  {/* Visual strength bar */}
+                  <div className="grid grid-cols-4 gap-1.5 h-1.5 w-full">
+                    {[1, 2, 3, 4].map((step) => (
+                      <div
+                        key={step}
+                        className="rounded-full h-full transition-all duration-300"
+                        style={{
+                          backgroundColor:
+                            passwordEvaluation.score >= step
+                              ? passwordEvaluation.color
+                              : 'var(--rule)',
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Checklist of security requirements */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1">
+                    {passwordEvaluation.rules.map((rule) => (
+                      <div
+                        key={rule.id}
+                        className={`flex items-center gap-1.5 text-[11px] transition-colors duration-200 ${
+                          rule.passed
+                            ? 'text-[var(--success)] font-medium'
+                            : 'text-[var(--ink-muted)]'
+                        }`}
+                      >
+                        {rule.passed ? (
+                          <Check className="w-3 h-3 text-[var(--success)] shrink-0" />
+                        ) : (
+                          <X className="w-3 h-3 text-[var(--ink-muted)] opacity-60 shrink-0" />
+                        )}
+                        <span>{rule.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Primary CTA */}
             <Button
               type="submit"
               variant="primary"
               size="lg"
-              isLoading={loading}
+              isLoading={isLoading}
+              disabled={isLoading}
               className="w-full mt-2"
             >
               Create account
             </Button>
           </form>
-
         </>
       )}
     </div>
