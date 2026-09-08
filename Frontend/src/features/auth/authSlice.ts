@@ -73,6 +73,7 @@ export const authSlice = createSlice({
         if (action.payload.user) {
           state.user = action.payload.user;
           state.isAuthenticated = true;
+          state.isInitialized = true;
         }
         state.error = null;
       })
@@ -85,6 +86,7 @@ export const authSlice = createSlice({
       .addMatcher(authApi.endpoints.logout.matchFulfilled, (state) => {
         state.user = null;
         state.isAuthenticated = false;
+        state.isInitialized = true;
         state.loading = false;
         state.error = null;
       });
@@ -95,6 +97,7 @@ export const authSlice = createSlice({
         if (action.payload.user) {
           state.user = action.payload.user;
           state.isAuthenticated = true;
+          state.isInitialized = true;
         }
       });
   },

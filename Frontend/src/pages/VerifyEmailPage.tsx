@@ -1,27 +1,39 @@
-import React from 'react';
-import { useVerifyEmailQuery, getRtkErrorMessage } from '../../api/authApi';
-import { AuthLayout } from '../../components/layout/AuthLayout';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import type React from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useVerifyEmailQuery, getRtkErrorMessage } from '../api/authApi';
+import { AuthLayout } from '../components/layout/AuthLayout';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { CheckCircle2, AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 
-export interface VerifyEmailPageProps {
-  token: string;
-  onNavigateHome: () => void;
-}
+/**
+ * Handles the emailed verification link (/verify?token=...). The token is read
+ * from the query string by the router; verifying also logs the user in
+ * server-side, so success lands on the account page.
+ */
+export const VerifyEmailPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token') ?? '';
 
-export const VerifyEmailPage: React.FC<VerifyEmailPageProps> = ({ token, onNavigateHome }) => {
   const { data, error, isLoading, refetch } = useVerifyEmailQuery(token, {
     skip: !token,
   });
 
-  const errorMessage = error ? getRtkErrorMessage(error) : null;
+  const errorMessage = error
+    ? getRtkErrorMessage(error)
+    : !token
+      ? 'This link is missing its verification token.'
+      : null;
+
+  // Drop the token from the URL on the way out so it is not left in history.
+  const onNavigateHome = () => navigate(data ? '/account' : '/login', { replace: true });
 
   return (
     <AuthLayout>
       <Card className="w-full shadow-sm border-[var(--rule)] flex flex-col gap-6">
-        {isLoading ? (
+        {isLoading && token ? (
           <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
             <RefreshCw className="w-8 h-8 text-[var(--accent)] animate-spin" />
             <div className="flex flex-col gap-1">
@@ -96,6 +108,7 @@ export const VerifyEmailPage: React.FC<VerifyEmailPageProps> = ({ token, onNavig
                 variant="secondary"
                 size="md"
                 onClick={() => refetch()}
+                disabled={!token}
                 leftIcon={<RefreshCw className="w-4 h-4" />}
                 className="w-full"
               >

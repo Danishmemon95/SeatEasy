@@ -1,24 +1,22 @@
+import { Outlet } from 'react-router-dom';
 import { useCheckAuthQuery } from './api/authApi';
-import { AuthPage } from './features/auth/AuthPage';
-import { Loader2 } from 'lucide-react';
+import { useAppSelector } from './app/hooks';
+import { RouteFallback } from './routes/RouteFallback';
 
+/**
+ * Layout route for the whole app. Runs the session-restore query exactly once
+ * and holds the first paint until it settles, so the guards below never see an
+ * undecided auth state and no route flashes before redirecting.
+ */
 export function App() {
-  const { isLoading: isCheckingAuth } = useCheckAuthQuery();
+  useCheckAuthQuery();
+  const isInitialized = useAppSelector((state) => state.auth.isInitialized);
 
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[var(--paper-base)]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-7 h-7 text-[var(--accent)] animate-spin" />
-          <span className="text-caption text-[var(--ink-muted)] tracking-wider font-medium">
-            RESTORING SESSION
-          </span>
-        </div>
-      </div>
-    );
+  if (!isInitialized) {
+    return <RouteFallback label="RESTORING SESSION" />;
   }
 
-  return <AuthPage />;
+  return <Outlet />;
 }
 
 export default App;

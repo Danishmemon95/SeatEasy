@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLoginMutation, getRtkErrorMessage } from '../../api/authApi';
 import { validateEmail, validatePassword, sanitizeInput } from '../../utils/validation';
@@ -10,7 +11,9 @@ export interface LoginFormProps {
   onSwitchToRegister: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = () => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [login, { isLoading, error: rtkError, reset }] = useLoginMutation();
 
   const [email, setEmail] = useState('');
@@ -53,6 +56,9 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
         email: sanitizeInput(email).toLowerCase(),
         password,
       }).unwrap();
+
+      const state = location.state as { from?: { pathname?: string } } | null;
+      navigate(state?.from?.pathname ?? '/account', { replace: true });
     } catch {
       // RTK Query maintains the error state accessible via rtkError
     }
@@ -153,6 +159,17 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
         >
           Sign in
         </Button>
+
+        <p className="text-[13px] text-[var(--ink-secondary)] text-center mt-1">
+          Don't have an account?{' '}
+          <button
+            type="button"
+            onClick={onSwitchToRegister}
+            className="text-[var(--accent)] font-medium link-underline cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            Create one
+          </button>
+        </p>
       </form>
     </div>
   );
