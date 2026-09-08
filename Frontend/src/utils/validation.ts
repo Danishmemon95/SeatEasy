@@ -142,7 +142,12 @@ export const evaluatePasswordStrength = (password: string): PasswordStrengthResu
 };
 
 /**
- * Basic sanitization to prevent accidental whitespace or injection issues.
+ * Trims surrounding whitespace from user input.
+ *
+ * NOTE: This is a convenience helper, not a security control. It does not
+ * escape or strip anything and provides no protection against XSS or
+ * injection. Rely on React's escaping for rendering and on parameterized
+ * queries server-side.
  */
 export const sanitizeInput = (input: string): string => {
   return input.trim();
