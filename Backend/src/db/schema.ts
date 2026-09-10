@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, boolean, date, text, timestamp, integer, pgEnum, decimal, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, boolean, date, text, timestamp, integer, pgEnum, decimal, unique, index } from "drizzle-orm/pg-core";
 
 export const seatCategoryEnum = pgEnum("seat_category", ["gold", "platinum", "sofa"]);
 export const userRolesEnum = pgEnum("user_roles", ["admin", "organizer", "buyer"]);
@@ -15,11 +15,13 @@ export const users = pgTable("users", {
     dob: date("dob"),
     address: text("address"),
     isVerified: boolean("is_verified").notNull().default(false),
-    verificationToken: varchar("verification_token", { length: 512 }),
-    verificationTokenExpires: timestamp("verification_token_expires"),
+    verificationTokenHash: varchar("verification_token_hash", { length: 64 }),
+    verificationTokenExpires: timestamp("verification_token_expires", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+    index("users_verification_token_hash_idx").on(table.verificationTokenHash),
+]);
 
 export const venues = pgTable("venues", {
     id: serial("id").primaryKey(),

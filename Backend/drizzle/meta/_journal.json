@@ -29,6 +29,13 @@
       "when": 1788858938980,
       "tag": "0003_stormy_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789000000000,
+      "tag": "0004_hashed_verification_tokens",
+      "breakpoints": true
     }
   ]
 }

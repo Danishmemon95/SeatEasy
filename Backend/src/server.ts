@@ -1,29 +1,31 @@
-import express from "express"
-import dotenv from "dotenv"
-import cors from "cors"
-import pool from "./config/db"
-import authRoutes from "./Auth/authRoutes"
-import cookieParser from "cookie-parser"
+// Imported first so an invalid environment fails before anything else boots.
+import { env } from "./config/env";
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import pool from "./config/db";
+import authRoutes from "./Auth/authRoutes";
 
-dotenv.config()
-const app = express()
+const app = express();
 
-const PORT = process.env.PORT || 5000
+// Render and similar hosts sit behind a proxy; without this req.ip is the
+// proxy's address and every client shares one rate-limit bucket.
+app.set("trust proxy", 1);
 
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: env.CLIENT_URL,
     credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 
-app.use("/api/auth", authRoutes)
+app.use("/api/auth", authRoutes);
 
-app.listen(PORT, async () => {
+app.listen(env.PORT, async () => {
     try {
         await pool.query("SELECT NOW()");
-        console.log(`Server is running on port ${PORT}`);
+        console.log(`Server is running on port ${env.PORT}`);
     } catch (error) {
         console.error("Database connection failed:", error);
     }

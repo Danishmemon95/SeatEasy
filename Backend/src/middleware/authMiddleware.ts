@@ -3,6 +3,7 @@ import { users } from "../db/schema";
 import jwt, { JsonWebTokenError, TokenExpiredError, type JwtPayload } from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { db } from "../config/db";
+import { env } from "../config/env";
 
 declare global {
     namespace Express {
@@ -29,7 +30,7 @@ export const protectRoute = async (req: Request, res: Response, next: NextFuncti
 
         let decoded: JwtPayload
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload
+            decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload
         } catch (error) {
             if (error instanceof TokenExpiredError) {
                 return res.status(401).json({ message: "Unauthorized - Token expired" });
