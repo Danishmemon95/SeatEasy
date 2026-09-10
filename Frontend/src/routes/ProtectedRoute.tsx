@@ -1,7 +1,7 @@
 import type React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAppSelector } from '../app/hooks';
 import type { UserRole } from '../types/auth.types';
+import { useAuth } from '../features/auth/useAuth';
 import { RouteFallback } from './RouteFallback';
 
 export interface ProtectedRouteProps {
@@ -19,10 +19,13 @@ export interface ProtectedRouteProps {
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   const location = useLocation();
-  const { isAuthenticated, isInitialized, user } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isInitialized, isFetching, user, hasRole } = useAuth();
 
-  // checkAuth has not settled yet — hold rather than bouncing to /login.
-  if (!isInitialized) {
+  // Hold while the session is being established or re-checked. The isFetching
+  // case matters right after login: the cache still holds the signed-out result
+  // until the refetch lands, and redirecting on that would bounce the user
+  // straight back to the login form they just completed.
+  if (!isInitialized || (isFetching && !isAuthenticated)) {
     return <RouteFallback label="RESTORING SESSION" />;
   }
 
@@ -30,7 +33,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (allowedRoles && (!user.role || !allowedRoles.includes(user.role))) {
+  if (allowedRoles && !hasRole(...allowedRoles)) {
     return <Navigate to="/forbidden" replace />;
   }
 

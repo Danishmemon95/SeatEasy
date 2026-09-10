@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
-import { useLoginMutation, getRtkErrorMessage } from '../../api/authApi';
-import { validateEmail, validatePassword, sanitizeInput } from '../../utils/validation';
+import { Eye, EyeOff, MailWarning } from 'lucide-react';
+import { useLoginMutation, getRtkErrorMessage, getApiErrorCode } from '../../api/authApi';
+import { validateEmail, validateLoginPassword, sanitizeInput } from '../../utils/validation';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
@@ -24,7 +24,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
 
   const validate = () => {
     const emailErr = validateEmail(email);
-    const passErr = validatePassword(password);
+    const passErr = validateLoginPassword(password);
 
     const errors: { email?: string; password?: string } = {};
     if (emailErr) errors.email = emailErr;
@@ -40,7 +40,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       const err = validateEmail(email);
       setFormErrors((prev) => ({ ...prev, email: err || undefined }));
     } else if (field === 'password') {
-      const err = validatePassword(password);
+      const err = validateLoginPassword(password);
       setFormErrors((prev) => ({ ...prev, password: err || undefined }));
     }
   };
@@ -64,7 +64,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
     }
   };
 
-  const errorMessage = rtkError ? getRtkErrorMessage(rtkError) : null;
+  // The one failure the user can act on: the account exists and they proved it
+  // is theirs, so this gets its own panel rather than a generic error.
+  const isUnverified = getApiErrorCode(rtkError) === 'EMAIL_NOT_VERIFIED';
+  const errorMessage = rtkError && !isUnverified ? getRtkErrorMessage(rtkError) : null;
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -78,6 +81,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           Sign in to manage your tickets, seats, and reservations.
         </p>
       </div>
+
+      {/* Unverified account — actionable, so it is not styled as an error */}
+      {isUnverified && (
+        <div className="flex items-start gap-3 p-4 rounded-[10px] border border-[var(--warning)]/20 bg-[var(--warning-subtle)]">
+          <MailWarning className="w-5 h-5 text-[var(--warning)] shrink-0 mt-0.5" />
+          <div className="flex flex-col gap-1">
+            <h3 className="font-sans font-medium text-[14px] text-[var(--ink)]">
+              Verify your email to continue
+            </h3>
+            <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed">
+              We sent a verification link to <span className="font-medium">{email}</span>.
+              Open it to activate your account, then sign in.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Calm Error Alert */}
       {errorMessage && (

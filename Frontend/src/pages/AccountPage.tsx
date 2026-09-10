@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../app/hooks';
+import { useAuth } from '../features/auth/useAuth';
 import { useLogoutMutation } from '../api/authApi';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import { Card } from '../components/ui/Card';
@@ -11,7 +11,7 @@ import { LogOut, CheckCircle, ShieldCheck, Ticket } from 'lucide-react';
 /** The signed-in landing page. Rendered behind ProtectedRoute, so `user` is present. */
 export const AccountPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAppSelector((state) => state.auth);
+  const { user } = useAuth();
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
 
   if (!user) return null;

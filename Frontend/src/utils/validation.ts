@@ -62,8 +62,12 @@ export const validateUsername = (username: string): string | null => {
 };
 
 /**
- * Validates a password against baseline constraints.
- * Returns null if valid, or an error string if invalid.
+ * Validates a password for the register form.
+ *
+ * These rules mirror registerSchema in Backend/src/Auth/authSchemas.ts. Keeping
+ * them in step means the strength meter's checklist is also the submit
+ * condition, so a user is never told what is wrong only after a round trip.
+ * The backend remains the authority — this is a convenience, not a control.
  */
 export const validatePassword = (password: string): string | null => {
   if (!password) {
@@ -72,11 +76,35 @@ export const validatePassword = (password: string): string | null => {
   if (password.length < 8) {
     return 'Password must be at least 8 characters long';
   }
-  if (password.length > 128) {
-    return 'Password cannot exceed 128 characters';
+  // Bcrypt ignores anything past 72 bytes, so the backend rejects longer input
+  // rather than silently accepting a password whose tail does not count.
+  if (password.length > 72) {
+    return 'Password cannot exceed 72 characters';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain an uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain a lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain a number';
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return 'Password must contain a special character';
   }
   return null;
 };
+
+/**
+ * Validates a password at sign-in.
+ *
+ * Deliberately only checks presence: the rules above are for choosing a new
+ * password, and applying them here would lock out anyone whose existing
+ * password predates them.
+ */
+export const validateLoginPassword = (password: string): string | null =>
+  password ? null : 'Please provide your password';
 
 /**
  * Evaluates password strength and returns score, rules checklist, and label.

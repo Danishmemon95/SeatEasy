@@ -1,22 +1,30 @@
 import { Outlet } from 'react-router-dom';
-import { useCheckAuthQuery } from './api/authApi';
-import { useAppSelector } from './app/hooks';
+import { useAuth } from './features/auth/useAuth';
 import { RouteFallback } from './routes/RouteFallback';
 
 /**
- * Layout route for the whole app. Runs the session-restore query exactly once
- * and holds the first paint until it settles, so the guards below never see an
+ * Layout route for the whole app.
+ *
+ * Calling useAuth here is what kicks off the session-restore request; every
+ * guard and page below shares that one cache entry rather than refetching.
+ * Holding the first paint until it settles means the guards never observe an
  * undecided auth state and no route flashes before redirecting.
  */
 export function App() {
-  useCheckAuthQuery();
-  const isInitialized = useAppSelector((state) => state.auth.isInitialized);
+  const { isInitialized } = useAuth();
 
-  if (!isInitialized) {
-    return <RouteFallback label="RESTORING SESSION" />;
-  }
-
-  return <Outlet />;
+  // The Outlet stays mounted and is hidden instead of being swapped out. App is
+  // the only subscriber to checkAuth while the session is being restored, and
+  // unmounting the tree here would tear that subscription down, reset the cache
+  // entry, and start the query over on every pass.
+  return (
+    <>
+      {!isInitialized && <RouteFallback label="RESTORING SESSION" />}
+      <div hidden={!isInitialized}>
+        <Outlet />
+      </div>
+    </>
+  );
 }
 
 export default App;

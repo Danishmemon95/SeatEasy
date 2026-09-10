@@ -28,6 +28,21 @@ export interface AuthResponse {
   user?: User;
 }
 
+/**
+ * Registration deliberately returns no user. The API answers 202 with the same
+ * message whether or not the address was already taken, so that registering
+ * cannot be used to discover which emails exist.
+ */
+export interface RegisterResponse {
+  message: string;
+}
+
+/** Per-field validation failures from the backend schema. */
+export interface ApiFieldError {
+  field: string;
+  message: string;
+}
+
 export interface CheckAuthResponse {
   success: boolean;
   message: string;
@@ -41,13 +56,6 @@ export interface VerifyResponse {
 
 export interface ApiErrorResponse {
   message?: string;
-}
-
-export interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isInitialized: boolean;
-  loading: boolean;
-  error: string | null;
-  successMessage: string | null;
+  code?: string;
+  errors?: ApiFieldError[];
 }

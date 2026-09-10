@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, CheckCircle2, Check, X } from 'lucide-react';
-import { useRegisterMutation, getRtkErrorMessage } from '../../api/authApi';
+import { Eye, EyeOff, MailCheck, Check, X } from 'lucide-react';
+import { useRegisterMutation, getRtkErrorMessage, getFieldErrors } from '../../api/authApi';
 import {
   validateUsername,
   validateEmail,
@@ -80,11 +80,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
         password,
       }).unwrap();
 
-      setSuccessResponse(
-        result.message || 'User registered successfully. Please check your email to verify your account.'
-      );
-    } catch {
-      // RTK Query error handles rejection state
+      // A 202 means "accepted", not "created" — the API deliberately gives the
+      // same answer whether or not the address was already registered, so the
+      // banner must not claim an account was made. Show the server's wording.
+      setSuccessResponse(result.message);
+    } catch (err) {
+      // Surface per-field messages from the backend schema next to their inputs.
+      const fieldErrors = getFieldErrors(err);
+      if (fieldErrors) {
+        setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
+        setTouched({ username: true, email: true, password: true });
+      }
     }
   };
 
@@ -107,10 +113,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
       {successResponse ? (
         <div className="flex flex-col gap-4 p-5 rounded-[10px] border border-[var(--success)]/20 bg-[var(--success-subtle)] text-[var(--ink)]">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-[var(--success)] shrink-0 mt-0.5" />
+            <MailCheck className="w-5 h-5 text-[var(--success)] shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
               <h3 className="font-sans font-medium text-[15px] text-[var(--ink)]">
-                Account Created Successfully
+                Check your email
               </h3>
               <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed">
                 {successResponse}

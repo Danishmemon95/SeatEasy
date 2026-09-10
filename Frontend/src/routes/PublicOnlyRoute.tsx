@@ -1,6 +1,6 @@
 import type React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAppSelector } from '../app/hooks';
+import { useAuth } from '../features/auth/useAuth';
 import { RouteFallback } from './RouteFallback';
 
 interface RedirectState {
@@ -14,7 +14,7 @@ interface RedirectState {
  */
 export const PublicOnlyRoute: React.FC = () => {
   const location = useLocation();
-  const { isAuthenticated, isInitialized } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isInitialized } = useAuth();
 
   if (!isInitialized) {
     return <RouteFallback label="RESTORING SESSION" />;

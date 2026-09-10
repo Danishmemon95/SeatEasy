@@ -1,13 +1,19 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { authApi } from '../../api/authApi';
-import type { AuthState, User } from '../../types/auth.types';
 
-const initialState: AuthState = {
-  user: null,
-  isAuthenticated: false,
-  isInitialized: false,
-  loading: false,
-  error: null,
+/**
+ * Local UI state for the auth screens.
+ *
+ * Session state (who is signed in, whether the check has settled) is NOT here —
+ * it lives in the checkAuth query cache and is read through useAuth(). This
+ * slice holds only what the server cache cannot: messages the UI wants to carry
+ * across a tab switch or a route change.
+ */
+export interface AuthUiState {
+  /** Banner shown after an action completes, e.g. "check your email". */
+  successMessage: string | null;
+}
+
+const initialState: AuthUiState = {
   successMessage: null,
 };
 
@@ -15,102 +21,15 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    clearAuthError: (state) => {
-      state.error = null;
+    setSuccessMessage: (state, action: PayloadAction<string>) => {
+      state.successMessage = action.payload;
     },
     clearSuccessMessage: (state) => {
       state.successMessage = null;
     },
-    setAuthError: (state, action: PayloadAction<string>) => {
-      state.error = action.payload;
-    },
-    setSuccessMessage: (state, action: PayloadAction<string>) => {
-      state.successMessage = action.payload;
-    },
-    setUser: (state, action: PayloadAction<User>) => {
-      state.user = action.payload;
-      state.isAuthenticated = true;
-      state.error = null;
-    },
-    setInitialized: (state, action: PayloadAction<boolean>) => {
-      state.isInitialized = action.payload;
-    },
-    logoutLocal: (state) => {
-      state.user = null;
-      state.isAuthenticated = false;
-      state.error = null;
-      state.successMessage = null;
-    },
-  },
-  extraReducers: (builder) => {
-    // Check Auth endpoint matches
-    builder
-      .addMatcher(authApi.endpoints.checkAuth.matchPending, (state) => {
-        state.loading = true;
-      })
-      .addMatcher(authApi.endpoints.checkAuth.matchFulfilled, (state, action) => {
-        state.loading = false;
-        state.isInitialized = true;
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
-        state.error = null;
-      })
-      .addMatcher(authApi.endpoints.checkAuth.matchRejected, (state) => {
-        state.loading = false;
-        state.isInitialized = true;
-        state.user = null;
-        state.isAuthenticated = false;
-      });
-
-    // Login endpoint matches
-    builder
-      .addMatcher(authApi.endpoints.login.matchPending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
-        state.loading = false;
-        if (action.payload.user) {
-          state.user = action.payload.user;
-          state.isAuthenticated = true;
-          state.isInitialized = true;
-        }
-        state.error = null;
-      })
-      .addMatcher(authApi.endpoints.login.matchRejected, (state) => {
-        state.loading = false;
-      });
-
-    // Logout endpoint matches
-    builder
-      .addMatcher(authApi.endpoints.logout.matchFulfilled, (state) => {
-        state.user = null;
-        state.isAuthenticated = false;
-        state.isInitialized = true;
-        state.loading = false;
-        state.error = null;
-      });
-
-    // Verify Email endpoint matches
-    builder
-      .addMatcher(authApi.endpoints.verifyEmail.matchFulfilled, (state, action) => {
-        if (action.payload.user) {
-          state.user = action.payload.user;
-          state.isAuthenticated = true;
-          state.isInitialized = true;
-        }
-      });
   },
 });
 
-export const {
-  clearAuthError,
-  clearSuccessMessage,
-  setAuthError,
-  setSuccessMessage,
-  setUser,
-  setInitialized,
-  logoutLocal,
-} = authSlice.actions;
+export const { setSuccessMessage, clearSuccessMessage } = authSlice.actions;
 
 export default authSlice.reducer;

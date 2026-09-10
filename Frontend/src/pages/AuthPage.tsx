@@ -1,7 +1,7 @@
 import type React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../app/hooks';
-import { clearAuthError, clearSuccessMessage } from '../features/auth/authSlice';
+import { clearSuccessMessage } from '../features/auth/authSlice';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import { LoginForm } from '../features/auth/LoginForm';
 import { RegisterForm } from '../features/auth/RegisterForm';
@@ -28,7 +28,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
 
   // Preserve the post-login redirect target across a tab switch.
   const switchTo = (to: string) => {
-    dispatch(clearAuthError());
     dispatch(clearSuccessMessage());
     navigate(to, { replace: true, state: location.state });
   };
@@ -43,10 +42,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
               to={tab.to}
               replace
               state={location.state}
-              onClick={() => {
-                dispatch(clearAuthError());
-                dispatch(clearSuccessMessage());
-              }}
+              onClick={() => dispatch(clearSuccessMessage())}
               className={`pb-3 text-caption transition-colors cursor-pointer text-center ${
                 mode === tab.mode
                   ? 'text-[var(--accent)] font-medium'
