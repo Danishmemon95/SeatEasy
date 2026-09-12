@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { users } from "../db/schema";
+import { UserRole, users } from "../db/schema";
 import jwt, { JsonWebTokenError, TokenExpiredError, type JwtPayload } from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { db } from "../config/db";
@@ -12,7 +12,7 @@ declare global {
                 id: number;
                 username: string;
                 email: string;
-                role: "organizer" | "buyer" | "admin";
+                role: UserRole;
                 isVerified: boolean;
             }
         }
@@ -50,7 +50,14 @@ export const protectRoute = async (req: Request, res: Response, next: NextFuncti
         }).from(users).where(eq(users.id, decoded.userId));
 
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(401).json({ message: "Unauthorized - Session no longer valid" });
+        }
+
+        if (!user.isVerified) {
+            return res.status(403).json({
+                message: "Please verify your email address to continue.",
+                code: "EMAIL_NOT_VERIFIED",
+            });
         }
 
         req.user = user;
@@ -60,4 +67,14 @@ export const protectRoute = async (req: Request, res: Response, next: NextFuncti
         console.error(error)
         res.status(500).json({ message: "Internal server error" });
     }
+}
+
+export const requireRole = (...roles: UserRole[]) => (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    
+    if (!roles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    next();
 }

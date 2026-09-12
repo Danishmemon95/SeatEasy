@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { db } from "../config/db";
-import { users } from "../db/schema";
+import { orgApplications, users } from "../db/schema";
 import { and, eq, gt, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/generateToken";
@@ -202,6 +202,8 @@ export const verifyUser = async (req: Request, res: Response) => {
     }
 };
 
+
+
 export const checkAuth = async (req: Request, res: Response) => {
     try {
         res.status(200).json({ success: true, message: "Authenticated", user: req.user });
@@ -210,3 +212,21 @@ export const checkAuth = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
+
+export const applyOrg = async (req: Request, res: Response) => {
+    try {
+
+        // const { desription } = req.body
+        // const user = req.user
+
+        
+
+        res.status(200).json({ message: "Application sent" })
+
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}

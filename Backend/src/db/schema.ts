@@ -6,6 +6,8 @@ export const bookingStatusEnum = pgEnum("booking_status", ["pending", "confirmed
 export const seatStatusEnum = pgEnum("seat_status", ["available", "held", "booked"]);
 export const applicationStatusEnum = pgEnum("application_status", ["pending", "approved", "rejected"]);
 
+export type UserRole = (typeof userRolesEnum.enumValues)[number];
+
 export const users = pgTable("users", {
     id: serial("id").primaryKey(),
     username: varchar("username", { length: 50 }).notNull().unique(),
