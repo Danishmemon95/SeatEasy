@@ -89,7 +89,7 @@ export const orgApplications = pgTable("org_applications", {
     requesterId: integer("requester_id").notNull().references(() => users.id),
     description: text("description").notNull(),
     status: applicationStatusEnum("status").notNull().default("pending"),
-    approverId: integer("approver_id").references(() => users.id),
+    reviewerId: integer("approver_id").references(() => users.id),
     reviewedAt: timestamp("reviewed_at"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

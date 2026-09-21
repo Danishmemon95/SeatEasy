@@ -5,6 +5,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import pool from "./config/db";
 import authRoutes from "./Auth/authRoutes";
+import OrgApplicationRoutes from "./Applications/orgApplicationRoutes";
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/application", OrgApplicationRoutes);
 
 app.listen(env.PORT, async () => {
     try {

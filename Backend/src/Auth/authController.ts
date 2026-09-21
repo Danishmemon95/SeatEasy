@@ -140,6 +140,7 @@ export const login = async (req: Request, res: Response) => {
     }
 };
 
+
 export const logout = async (req: Request, res: Response) => {
     try {
         res.clearCookie("jwt", authCookieOptions);
@@ -149,6 +150,7 @@ export const logout = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const verifyUser = async (req: Request, res: Response) => {
     try {
@@ -212,21 +214,3 @@ export const checkAuth = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
-
-
-
-export const applyOrg = async (req: Request, res: Response) => {
-    try {
-
-        // const { desription } = req.body
-        // const user = req.user
-
-        
-
-        res.status(200).json({ message: "Application sent" })
-
-    } catch (error) {
-        console.error(error)
-        res.status(500).json({ message: "Internal server error" })
-    }
-}

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { applyOrg, checkAuth, login, logout, register, verifyUser } from "./authController";
-import { protectRoute, requireRole } from "../middleware/authMiddleware";
+import { checkAuth, login, logout, register, verifyUser } from "./authController";
+import { protectRoute } from "../middleware/authMiddleware";
 import {
     authLimiter,
     loginLimiter,
@@ -21,7 +21,6 @@ const router = Router();
 router.get("/checkAuth", protectRoute, checkAuth);
 router.post("/logout", logout);
 
-router.post("/applyOrg", protectRoute, requireRole("buyer"), applyOrg)
 
 /**
  * Credential routes. These run bcrypt or mint tokens, so they carry both the
