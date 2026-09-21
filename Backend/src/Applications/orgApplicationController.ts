@@ -43,6 +43,23 @@ export const applyOrg = async (req: Request, res: Response) => {
 }
 
 
+export const myApplication = async (req: Request, res: Response) => {
+    try {
+        const user = req.user;
+        if (!user) return res.status(401).json({ message: "Unauthorized" })
+
+        const [application] = await db.select().from(orgApplications).where(eq(orgApplications.requesterId, user.id))
+
+        if (!application) return res.status(404).json({ message: "No application found" })
+
+        res.status(200).json({ success: true, message: "Application fetched successfully", application })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+
 export const applicationList = async (req: Request, res: Response) => {
     try {
         const user = req.user;
