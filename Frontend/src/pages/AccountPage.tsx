@@ -6,7 +6,7 @@ import { AuthLayout } from '../components/layout/AuthLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { LogOut, CheckCircle, ShieldCheck, Ticket } from 'lucide-react';
+import { LogOut, CheckCircle, ShieldCheck, Ticket, Building2, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
 
 /** The signed-in landing page. Rendered behind ProtectedRoute, so `user` is present. */
 export const AccountPage: React.FC = () => {
@@ -82,6 +82,57 @@ export const AccountPage: React.FC = () => {
             </div>
             <Badge variant="accent">Ready</Badge>
           </div>
+
+          {/* Buyer/Organizer user card for Organization Application */}
+          {user.role !== 'admin' && (
+            <div
+              onClick={() => navigate('/apply-for-organization')}
+              className="p-3.5 rounded-[6px] border border-[var(--rule)] bg-[var(--paper-raised)] flex items-center justify-between cursor-pointer hover:border-[var(--rule-strong)] transition-all"
+            >
+              <div className="flex items-center gap-2.5">
+                <Building2 className="w-4 h-4 text-[var(--accent)]" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-[var(--ink)]">Organization Application</span>
+                  <span className="text-xs text-[var(--ink-muted)]">Apply for or check organizer status</span>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-[var(--ink-muted)]" />
+            </div>
+          )}
+
+          {/* Organizer card if role is organizer or admin */}
+          {(user.role === 'organizer' || user.role === 'admin') && (
+            <div
+              onClick={() => navigate('/organizer/dashboard')}
+              className="p-3.5 rounded-[6px] border border-[var(--accent-border)] bg-[var(--accent-subtle)] flex items-center justify-between cursor-pointer hover:opacity-90 transition-all"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-[var(--accent)]" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-[var(--ink)]">Organizer Dashboard</span>
+                  <span className="text-xs text-[var(--ink-muted)]">Manage events, venues, & seat maps</span>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-[var(--accent)]" />
+            </div>
+          )}
+
+          {/* Admin card if role is admin */}
+          {user.role === 'admin' && (
+            <div
+              onClick={() => navigate('/admin/applications')}
+              className="p-3.5 rounded-[6px] border border-[var(--warning)]/30 bg-[var(--warning-subtle)] flex items-center justify-between cursor-pointer hover:opacity-90 transition-all"
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-4 h-4 text-[var(--warning)]" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-[var(--ink)]">Admin Applications Portal</span>
+                  <span className="text-xs text-[var(--ink-muted)]">Review and decide organization applications</span>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-[var(--warning)]" />
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 pt-2 border-t border-[var(--rule)]">

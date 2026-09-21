@@ -8,6 +8,10 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicOnlyRoute } from './PublicOnlyRoute';
 
+import { ApplyForOrganizationPage } from '../pages/ApplyForOrganizationPage';
+import { AdminApplicationsPage } from '../pages/admin/AdminApplicationsPage';
+import { OrganizerDashboardPage } from '../pages/organizer/OrganizerDashboardPage';
+
 /**
  * App is the layout route: it runs the single checkAuth query and renders an
  * <Outlet />, so session restoration happens once for the whole tree rather
@@ -39,14 +43,18 @@ export const router = createBrowserRouter([
       // Any signed-in user.
       {
         element: <ProtectedRoute />,
-        children: [{ path: 'account', element: <AccountPage /> }],
+        children: [
+          { path: 'account', element: <AccountPage /> },
+          { path: 'apply-for-organization', element: <ApplyForOrganizationPage /> },
+        ],
       },
 
       // Organizer-only. Shows, screenings and pricing land here.
       {
         element: <ProtectedRoute allowedRoles={['organizer', 'admin']} />,
         children: [
-          { path: 'organizer', element: <Navigate to="/account" replace /> },
+          { path: 'organizer', element: <Navigate to="/organizer/dashboard" replace /> },
+          { path: 'organizer/dashboard', element: <OrganizerDashboardPage /> },
         ],
       },
 
@@ -54,7 +62,8 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute allowedRoles={['admin']} />,
         children: [
-          { path: 'admin', element: <Navigate to="/account" replace /> },
+          { path: 'admin', element: <Navigate to="/admin/applications" replace /> },
+          { path: 'admin/applications', element: <AdminApplicationsPage /> },
         ],
       },
 
