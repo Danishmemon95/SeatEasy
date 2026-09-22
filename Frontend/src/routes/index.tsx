@@ -8,6 +8,10 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicOnlyRoute } from './PublicOnlyRoute';
 
+import { AuthedLayout } from '../components/layout/AuthedLayout';
+import { OrganizerShell } from '../components/layout/OrganizerShell';
+import { AdminShell } from '../components/layout/AdminShell';
+
 import { ApplyForOrganizationPage } from '../pages/ApplyForOrganizationPage';
 import { AdminApplicationsPage } from '../pages/admin/AdminApplicationsPage';
 import { OrganizerDashboardPage } from '../pages/organizer/OrganizerDashboardPage';
@@ -40,30 +44,45 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // Any signed-in user.
+      // Authenticated global shell with persistent AppHeader
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'account', element: <AccountPage /> },
-          { path: 'apply-for-organization', element: <ApplyForOrganizationPage /> },
-        ],
-      },
+          {
+            element: <AuthedLayout />,
+            children: [
+              { path: 'account', element: <AccountPage /> },
+              { path: 'apply-for-organization', element: <ApplyForOrganizationPage /> },
 
-      // Organizer-only. Shows, screenings and pricing land here.
-      {
-        element: <ProtectedRoute allowedRoles={['organizer', 'admin']} />,
-        children: [
-          { path: 'organizer', element: <Navigate to="/organizer/dashboard" replace /> },
-          { path: 'organizer/dashboard', element: <OrganizerDashboardPage /> },
-        ],
-      },
+              // Organizer section layout with sidebar
+              {
+                element: <ProtectedRoute allowedRoles={['organizer', 'admin']} />,
+                children: [
+                  {
+                    element: <OrganizerShell />,
+                    children: [
+                      { path: 'organizer', element: <Navigate to="/organizer/dashboard" replace /> },
+                      { path: 'organizer/dashboard', element: <OrganizerDashboardPage /> },
+                    ],
+                  },
+                ],
+              },
 
-      // Admin-only. Organizer application review lands here.
-      {
-        element: <ProtectedRoute allowedRoles={['admin']} />,
-        children: [
-          { path: 'admin', element: <Navigate to="/admin/applications" replace /> },
-          { path: 'admin/applications', element: <AdminApplicationsPage /> },
+              // Admin section layout with sidebar
+              {
+                element: <ProtectedRoute allowedRoles={['admin']} />,
+                children: [
+                  {
+                    element: <AdminShell />,
+                    children: [
+                      { path: 'admin', element: <Navigate to="/admin/applications" replace /> },
+                      { path: 'admin/applications', element: <AdminApplicationsPage /> },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
         ],
       },
 

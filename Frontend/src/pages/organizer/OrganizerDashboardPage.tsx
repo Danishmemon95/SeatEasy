@@ -18,31 +18,27 @@ export const OrganizerDashboardPage: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] p-4 md:p-8">
-      <div className="max-w-4xl mx-auto flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[var(--rule)]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center border border-[var(--accent-border)] shrink-0">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-caption text-[var(--ink-muted)] block">ORGANIZER DASHBOARD</span>
-              <h1 className="font-display font-medium text-2xl text-[var(--ink)]">
-                Welcome, {user?.username ?? 'Organizer'}
-              </h1>
-            </div>
+    <div className="max-w-4xl mx-auto flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[var(--rule)]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center border border-[var(--accent-border)] shrink-0">
+            <Sparkles className="w-5 h-5" />
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="accent">
-              <UserCheck className="w-3.5 h-3.5 mr-1" />
-              ORGANIZER ACCESS
-            </Badge>
-            <Button variant="secondary" size="sm" onClick={() => navigate('/account')}>
-              Account Settings
-            </Button>
+          <div>
+            <span className="text-caption text-[var(--ink-muted)] block">ORGANIZER DASHBOARD</span>
+            <h1 className="font-display font-medium text-xl text-[var(--ink)]">
+              Welcome, {user?.username ?? 'Organizer'}
+            </h1>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="accent">
+            <UserCheck className="w-3.5 h-3.5 mr-1" />
+            ORGANIZER ACCESS
+          </Badge>
+        </div>
+      </div>
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -95,7 +91,6 @@ export const OrganizerDashboardPage: React.FC = () => {
             View Application
           </Button>
         </Card>
-      </div>
     </div>
   );
 };

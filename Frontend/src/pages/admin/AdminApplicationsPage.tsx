@@ -1,6 +1,5 @@
 import type React from 'react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useGetApplicationListQuery } from '../../api/applicationApi';
 import type { ApplicationStatus } from '../../types/application.types';
 import { ApplicationDetailPanel } from '../../components/application/ApplicationDetailPanel';
@@ -21,7 +20,6 @@ import {
 } from 'lucide-react';
 
 export const AdminApplicationsPage: React.FC = () => {
-  const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | ApplicationStatus>('all');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -60,27 +58,21 @@ export const AdminApplicationsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] p-4 md:p-8">
-      <div className="max-w-5xl mx-auto flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[var(--rule)]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center border border-[var(--accent-border)] shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-caption text-[var(--ink-muted)] block">ADMIN PORTAL</span>
-              <h1 className="font-display font-medium text-2xl text-[var(--ink)]">
-                Organization Applications
-              </h1>
-            </div>
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-[var(--rule)]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center border border-[var(--accent-border)] shrink-0">
+            <ShieldCheck className="w-5 h-5" />
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate('/account')}>
-              Account Settings
-            </Button>
+          <div>
+            <span className="text-caption text-[var(--ink-muted)] block">ADMINISTRATION</span>
+            <h1 className="font-display font-medium text-xl text-[var(--ink)]">
+              Organization Applications
+            </h1>
           </div>
         </div>
+      </div>
 
         {/* Filter Pills */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -204,7 +196,6 @@ export const AdminApplicationsPage: React.FC = () => {
             </div>
           )}
         </Card>
-      </div>
     </div>
   );
 };
