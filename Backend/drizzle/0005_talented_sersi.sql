@@ -1,3 +1,11 @@
-ALTER TABLE "users" RENAME COLUMN "verification_token" TO "verification_token_hash";--> statement-breakpoint
-ALTER TABLE "users" ALTER COLUMN "verification_token_expires" SET DATA TYPE timestamp with time zone;--> statement-breakpoint
-CREATE INDEX "users_verification_token_hash_idx" ON "users" USING btree ("verification_token_hash");
+-- Intentionally a no-op.
+--
+-- drizzle-kit generated this migration because 0004 was hand-written without a
+-- snapshot, so it still believed "verification_token" existed and emitted a
+-- rename of it. 0004 already dropped that column, added
+-- "verification_token_hash", made "verification_token_expires" timezone-aware
+-- and created "users_verification_token_hash_idx", so the generated statements
+-- failed ("column verification_token does not exist") and blocked every later
+-- migration. The file stays so its snapshot (meta/0005_snapshot.json) remains
+-- the baseline drizzle-kit diffs against.
+SELECT 1;
