@@ -62,12 +62,6 @@ export const myApplication = async (req: Request, res: Response) => {
 
 export const applicationList = async (req: Request, res: Response) => {
     try {
-        const user = req.user;
-
-        if (!user) return res.status(401).json({ message: "Unauthorized" })
-
-        if (user.role !== "admin") return res.status(403).json({ message: "You don't have permission to get the application list" })
-
         const applications = await db.select().from(orgApplications)
         res.status(200).json({ success: true, message: "List fetched successfully", applications })
 
@@ -81,11 +75,9 @@ export const applicationList = async (req: Request, res: Response) => {
 export const applicationDecision = async (req: Request, res: Response) => {
     try {
 
-        const user = req.user;
-
-        if (!user) return res.status(401).json({ message: "Unauthorized" })
-
-        if (user.role !== "admin") return res.status(403).json({ message: "You don't have permission to update the application status" })
+        // req.user is guaranteed by protectRoute; requireRole("admin") on the
+        // route already restricts this handler to admins.
+        const user = req.user!;
 
         const parsed = applicationDecisionSchema.safeParse(req.body);
         if (!parsed.success) {
