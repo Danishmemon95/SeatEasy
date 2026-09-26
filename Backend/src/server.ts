@@ -6,6 +6,9 @@ import cookieParser from "cookie-parser";
 import pool from "./config/db";
 import authRoutes from "./Auth/authRoutes";
 import OrgApplicationRoutes from "./Applications/orgApplicationRoutes";
+import venueRoutes from "./Venues/venueRoutes"
+import showRoutes from "./Shows/showRoutes";
+import screeningRoutes from "./Screenings/screeningRoutes";
 
 const app = express();
 
@@ -23,6 +26,9 @@ app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/application", OrgApplicationRoutes);
+app.use("/api/venues", venueRoutes)
+app.use("/api/shows", showRoutes);
+app.use("/api/screenings", screeningRoutes);
 
 app.listen(env.PORT, async () => {
     try {
