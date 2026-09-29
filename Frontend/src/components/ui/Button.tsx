@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'link';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost' | 'link';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -65,6 +65,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         'transition-[background-color,box-shadow,transform] duration-[150ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]',
         'hover:opacity-90 hover:-translate-y-px',
         'active:translate-y-0 active:opacity-100',
+        'focus-visible:outline-2 focus-visible:outline-[var(--danger)] focus-visible:outline-offset-2',
+      ].join(' '),
+      // A quieter destructive action (e.g. "Delete venue" beside "Edit"): danger text, no fill.
+      'danger-ghost': [
+        'bg-transparent text-[var(--danger)] border border-transparent',
+        'transition-[background-color,transform] duration-[150ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]',
+        'hover:bg-[var(--danger-subtle)] hover:-translate-y-px',
+        'active:translate-y-0',
         'focus-visible:outline-2 focus-visible:outline-[var(--danger)] focus-visible:outline-offset-2',
       ].join(' '),
       link: [
