@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "../config/db";
-import { venues } from "../db/schema";
+import { seats, venues } from "../db/schema";
 import { listVenuesQuerySchema, updateVenueSchema, venueIdParamSchema, venueSchema } from "./venueSchemas";
 import { hasPgErrorCode, PG_FOREIGN_KEY_VIOLATION } from "../utils/pgErrors";
 import { ownerScope } from "../utils/access";
@@ -18,11 +18,19 @@ export const getVenues = async (req: Request, res: Response) => {
         const parsed = listVenuesQuerySchema.safeParse(req.query);
         if (!parsed.success) return sendValidationError(res, parsed.error, "Invalid query")
 
-        const { page, pageSize } = parsed.data
-        const scope = ownerScope(venues.ownerId, req.user!)
+        const { page, pageSize, ownerId } = parsed.data
+        const scope = and(
+            ownerScope(venues.ownerId, req.user!),
+            ownerId === undefined ? undefined : eq(venues.ownerId, ownerId),
+        )
+
+        // Capacity per venue in the same query, so lists don't load seats per row.
+        // Columns are qualified by hand: inside a subquery drizzle renders them
+        // bare, and a bare "id" would resolve to seats.id, not venues.id.
+        const seatCount = sql<number>`(select count(*)::int from ${seats} where ${seats}.${sql.identifier(seats.venueId.name)} = ${venues}.${sql.identifier(venues.id.name)})`
 
         const [venueList, total] = await Promise.all([
-            db.select().from(venues)
+            db.select({ ...getTableColumns(venues), seatCount }).from(venues)
                 .where(scope)
                 .orderBy(desc(venues.createdAt), desc(venues.id))
                 .limit(pageSize)

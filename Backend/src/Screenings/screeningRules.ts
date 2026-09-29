@@ -53,8 +53,11 @@ export const lockVenue = async (tx: Tx, venueId: number, scope?: SQL) => {
     return venue;
 };
 
-/** Whether the venue has a non-cancelled screening that hasn't ended yet. */
-export const hasUpcomingScreenings = async (tx: Tx, venueId: number) => {
+/**
+ * Whether the venue has a non-cancelled screening that hasn't ended yet.
+ * Also used outside a transaction (plain db) for the read-only layoutLocked flag.
+ */
+export const hasUpcomingScreenings = async (tx: Tx | typeof db, venueId: number) => {
     const [upcoming] = await tx
         .select({ id: screenings.id })
         .from(screenings)

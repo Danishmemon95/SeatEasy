@@ -43,9 +43,14 @@ export const getSeats = async (req: Request, res: Response) => {
         if (!venue) return res.status(404).json({ message: "Venue not found" })
 
         // Ordering by label length first keeps "AA" after "Z" instead of between "A" and "B".
-        const seatList = await db.select().from(seats)
-            .where(eq(seats.venueId, venueId))
-            .orderBy(sql`length(${seats.rowLabel})`, asc(seats.rowLabel), asc(seats.seatNumber))
+        // layoutLocked is advisory: it lets the editor open read-only, while the
+        // mutations still re-check under the venue lock.
+        const [seatList, layoutLocked] = await Promise.all([
+            db.select().from(seats)
+                .where(eq(seats.venueId, venueId))
+                .orderBy(sql`length(${seats.rowLabel})`, asc(seats.rowLabel), asc(seats.seatNumber)),
+            hasUpcomingScreenings(db, venueId),
+        ])
 
         // Per-category counts, derived from the seats themselves so they can never drift.
         const summary = Object.fromEntries(seatCategoryValues.map((c) => [c, 0])) as Record<(typeof seatCategoryValues)[number], number>
@@ -56,6 +61,7 @@ export const getSeats = async (req: Request, res: Response) => {
             message: "Seats fetched successfully",
             seats: seatList,
             summary: { ...summary, total: seatList.length },
+            layoutLocked,
         })
 
     } catch (error) {

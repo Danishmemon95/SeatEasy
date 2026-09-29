@@ -32,7 +32,11 @@ export const updateVenueSchema = venueSchema.partial();
 
 export const venueIdParamSchema = idParam("venueId");
 
-export const listVenuesQuerySchema = paginationSchema;
+// ownerId narrows an admin's list to one organizer (e.g. picking a venue for
+// that organizer's show). Organizers are always scoped to themselves anyway.
+export const listVenuesQuerySchema = paginationSchema.extend({
+    ownerId: z.coerce.number().int().positive("ownerId must be a positive integer").optional(),
+});
 
 export type VenueInput = z.infer<typeof venueSchema>;
 export type UpdateVenueInput = z.infer<typeof updateVenueSchema>;
