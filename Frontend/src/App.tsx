@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { useAuth } from './features/auth/useAuth';
 import { RouteFallback } from './routes/RouteFallback';
+import { ToastContainer } from './features/toast/ToastContainer';
 
 /**
  * Layout route for the whole app.
@@ -23,6 +24,7 @@ export function App() {
       <div hidden={!isInitialized}>
         <Outlet />
       </div>
+      <ToastContainer />
     </>
   );
 }

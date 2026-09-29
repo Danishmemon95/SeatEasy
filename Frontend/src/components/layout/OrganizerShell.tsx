@@ -13,15 +13,13 @@ const organizerNavItems: SidebarItem[] = [
     label: 'Events',
     to: '/organizer/events',
     icon: <Calendar className="w-4 h-4" />,
-    disabled: true,
-    badge: 'Soon',
+    end: false,
   },
   {
     label: 'Venues',
     to: '/organizer/venues',
     icon: <MapPin className="w-4 h-4" />,
-    disabled: true,
-    badge: 'Soon',
+    end: false,
   },
   {
     label: 'Analytics',

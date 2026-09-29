@@ -174,3 +174,14 @@ input[type="number"],
     scroll-behavior: auto !important;
   }
 }
+
+/* Toast / modal entrance: fade + small rise (§9.6), never a bounce */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

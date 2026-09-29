@@ -3,15 +3,19 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import authReducer from '../features/auth/authSlice';
 import { authApi } from '../api/authApi';
 import { applicationApi } from '../api/applicationApi';
+import { catalogApi } from '../api/catalogApi';
+import toastReducer from '../features/toast/toastSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    toast: toastReducer,
     [authApi.reducerPath]: authApi.reducer,
     [applicationApi.reducerPath]: applicationApi.reducer,
+    [catalogApi.reducerPath]: catalogApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(authApi.middleware, applicationApi.middleware),
+    getDefaultMiddleware().concat(authApi.middleware, applicationApi.middleware, catalogApi.middleware),
   devTools: import.meta.env.DEV,
 });
 

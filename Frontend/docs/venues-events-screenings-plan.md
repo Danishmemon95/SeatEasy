@@ -1,6 +1,6 @@
 # Plan: Venues, Seat Layouts, Events (Shows) & Screenings — Frontend
 
-**Status:** Proposed, not yet implemented
+**Status:** In progress. Phase 0 (foundations) and backend §9-A/§9-B done; Phases 1–5 pending
 **Scope:** `Frontend/src` (plus three small, optional backend additions in §9)
 **Depends on:** backend commits `4fd316b` → `e8e561a` (venues, seats, shows, screenings)
 

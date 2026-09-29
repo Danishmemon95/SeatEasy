@@ -17,11 +17,12 @@ const adminNavItems: SidebarItem[] = [
     badge: 'Soon',
   },
   {
+    // Admins manage events through the organizer pages (the role guard allows
+    // them); there is no separate admin events screen.
     label: 'Events',
-    to: '/admin/events',
+    to: '/organizer/events',
     icon: <Calendar className="w-4 h-4" />,
-    disabled: true,
-    badge: 'Soon',
+    end: false,
   },
 ];
 

@@ -1,4 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import { baseQuery } from './baseQuery';
 import type {
   ApplicationDecisionPayload,
   ApplicationDecisionResponse,
@@ -8,18 +9,9 @@ import type {
   MyApplicationResponse,
 } from '../types/application.types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
 export const applicationApi = createApi({
   reducerPath: 'applicationApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl: API_BASE_URL,
-    credentials: 'include',
-    prepareHeaders: (headers) => {
-      headers.set('Content-Type', 'application/json');
-      return headers;
-    },
-  }),
+  baseQuery,
   tagTypes: ['Application', 'ApplicationList', 'User'],
   endpoints: (builder) => ({
     // GET /api/application/ (Fetch current logged-in user's application)

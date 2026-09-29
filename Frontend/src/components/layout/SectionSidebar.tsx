@@ -7,6 +7,8 @@ export interface SidebarItem {
   icon: React.ReactNode;
   disabled?: boolean;
   badge?: string;
+  /** Match only the exact path (default). Set false so nested pages keep the item active, e.g. /organizer/venues/12. */
+  end?: boolean;
 }
 
 export interface SectionSidebarProps {
@@ -44,7 +46,7 @@ export const SectionSidebar: React.FC<SectionSidebarProps> = ({ sectionTitle, it
             <NavLink
               key={item.label}
               to={item.to}
-              end
+              end={item.end ?? true}
               className={({ isActive }) =>
                 `px-3 py-1.5 rounded-[6px] text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all ${
                   isActive
@@ -91,7 +93,7 @@ export const SectionSidebar: React.FC<SectionSidebarProps> = ({ sectionTitle, it
               <NavLink
                 key={item.label}
                 to={item.to}
-                end
+                end={item.end ?? true}
                 className={({ isActive }) =>
                   `px-3 py-2 rounded-[6px] text-xs font-medium flex items-center justify-between transition-all ${
                     isActive
