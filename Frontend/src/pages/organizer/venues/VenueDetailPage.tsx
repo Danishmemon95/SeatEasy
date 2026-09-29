@@ -8,12 +8,12 @@ import { useDocumentTitle } from '../../../app/useDocumentTitle';
 import { useTabParam, type TabItem } from '../../../app/urlState';
 import { useAuth } from '../../../features/auth/useAuth';
 import { useToast } from '../../../features/toast/useToast';
+import { VenueLayoutEditor } from '../../../features/venues/VenueLayoutEditor';
 import type { Venue } from '../../../types/catalog.types';
 import { formatDate } from '../../../utils/datetime';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/Modal';
-import { EmptyState } from '../../../components/ui/EmptyState';
 import { QueryErrorState } from '../../../components/ui/QueryErrorState';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { TabPanel, Tabs } from '../../../components/ui/Tabs';
@@ -145,16 +145,10 @@ export const VenueDetailPage: React.FC = () => {
       <div className="flex flex-col gap-6">
         <Tabs tabs={TABS} active={tab} onChange={setTab} idPrefix="venue" />
 
-        {tab === 'layout' && (
-          <TabPanel idPrefix="venue" id="layout">
-            <div className="bg-[var(--paper-raised)] border border-[var(--rule)] rounded-[10px]">
-              <EmptyState
-                title="Seat layout coming next"
-                description="The layout editor (rows, seats and categories) arrives in Phase 2 of the plan."
-              />
-            </div>
-          </TabPanel>
-        )}
+        {/* Always mounted: a half-written batch of rows survives a look at Details. */}
+        <TabPanel idPrefix="venue" id="layout" hidden={tab !== 'layout'}>
+          <VenueLayoutEditor venueId={venue.id} />
+        </TabPanel>
 
         {tab === 'details' && (
           <TabPanel idPrefix="venue" id="details">

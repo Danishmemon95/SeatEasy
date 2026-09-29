@@ -67,11 +67,20 @@ export function Tabs<T extends string>({ tabs, active, onChange, idPrefix }: Tab
 export interface TabPanelProps {
   idPrefix: string;
   id: string;
+  /** Hidden panels stay mounted, so in-progress work in them (e.g. a draft) survives a tab switch. */
+  hidden?: boolean;
   children: React.ReactNode;
 }
 
-export const TabPanel: React.FC<TabPanelProps> = ({ idPrefix, id, children }) => (
-  <div role="tabpanel" id={`${idPrefix}-panel-${id}`} aria-labelledby={`${idPrefix}-tab-${id}`} tabIndex={0} className="outline-none">
+export const TabPanel: React.FC<TabPanelProps> = ({ idPrefix, id, hidden = false, children }) => (
+  <div
+    role="tabpanel"
+    id={`${idPrefix}-panel-${id}`}
+    aria-labelledby={`${idPrefix}-tab-${id}`}
+    tabIndex={0}
+    hidden={hidden}
+    className="outline-none"
+  >
     {children}
   </div>
 );
