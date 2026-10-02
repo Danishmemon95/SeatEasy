@@ -34,7 +34,7 @@ export const OrganizerShell: React.FC = () => {
   return (
     <div className="flex flex-col md:flex-row flex-1 min-h-[calc(100vh-3.5rem)] bg-[var(--paper)]">
       <SectionSidebar sectionTitle="Organizer Portal" items={organizerNavItems} />
-      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
+      <div className="flex-1 min-w-0 p-4 md:p-8">
         <Outlet />
       </div>
     </div>

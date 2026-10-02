@@ -1,6 +1,6 @@
 # Plan: Venues, Seat Layouts, Events (Shows) & Screenings — Frontend
 
-**Status:** In progress. Phases 0–2 (foundations, venues, seat layouts) and backend §9-A/§9-B done; Phases 3–5 pending
+**Status:** Phases 0–5 done (foundations, venues, seat layouts, events, screenings, polish) with backend §9-A/§9-B/§9-C. §9-D not adopted: 409s are shown as the server words them. Remaining: the §12 manual run against a live backend, and the optional bulk seat-category change from §6.4.
 **Scope:** `Frontend/src` (plus three small, optional backend additions in §9)
 **Depends on:** backend commits `4fd316b` → `e8e561a` (venues, seats, shows, screenings)
 
@@ -83,7 +83,7 @@ Base: `VITE_API_URL` (default `http://localhost:5000/api`), cookies via `credent
 
 | Method | Path | Body / query | Response |
 | :--- | :--- | :--- | :--- |
-| GET | `/shows/:showId/screenings` | `?page&pageSize&status=scheduled\|cancelled` | `{ screenings: ScreeningDetail[], pagination }` |
+| GET | `/shows/:showId/screenings` | `?page&pageSize&status=scheduled\|cancelled&when=upcoming\|past` (`past` is newest first) | `{ screenings: ScreeningDetail[], pagination }` |
 | POST | `/shows/:showId/screenings` | `{ venueId, startsAt, prices: { gold?, platinum?, sofa? } }` | 201 `{ screening }` |
 | GET | `/screenings/:screeningId` | — | `{ screening }` |
 | PUT | `/screenings/:screeningId` | strict, at least one of `venueId`, `startsAt`, `prices` | `{ screening }` |
@@ -451,7 +451,7 @@ The frontend works without these, using the fallbacks noted above. Each one remo
 | :--- | :--- | :--- |
 | **A** | `GET /venues/:venueId/seats` adds `layoutLocked: boolean` (reuses `hasUpcomingScreenings`). | Lets the layout editor show read-only mode up front instead of after a 409. |
 | **B** | `GET /venues` adds `seatCount` per venue (a `LEFT JOIN seats … GROUP BY`) and an optional `?ownerId=` filter for admins. | Capacity column; exact venue picker when an admin schedules for an organizer. |
-| **C** | `GET /shows/:showId/screenings` accepts `?when=upcoming\|past`. | Server-side Upcoming/Past tabs that stay correct across pagination. |
+| **C** | `GET /shows/:showId/screenings` accepts `?when=upcoming\|past`. **Done.** | Server-side Upcoming/Past tabs that stay correct across pagination. |
 | **D** | Overlap 409 includes `code: 'SCREENING_OVERLAP'` and `clash: { id, startsAt, endsAt }`. | Structured "try 10:00 PM" suggestion instead of parsing the message. |
 
 Recommendation: do **A** and **B** before Phase 3. They are about 20 lines each and use the same patterns already in `seatController`/`venueController`.
