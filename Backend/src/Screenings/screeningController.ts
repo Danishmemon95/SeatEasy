@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../config/db";
 import { screeningPrices, screenings, screeningSeats, seats, shows, venues, type SeatCategory } from "../db/schema";
 import {
@@ -203,21 +203,31 @@ export const getShowScreenings = async (req: Request, res: Response) => {
         if (!parsed.success) return sendValidationError(res, parsed.error, "Invalid query")
 
         const { showId } = parsedParams.data
-        const { page, pageSize, status } = parsed.data
+        const { page, pageSize, status, when } = parsed.data
 
         const [show] = await db.select({ id: shows.id }).from(shows)
             .where(and(eq(shows.id, showId), ownerScope(shows.orgId, req.user!)))
             .limit(1)
         if (!show) return res.status(404).json({ message: "Show not found" })
 
-        const where = and(eq(screenings.showId, showId), status ? eq(screenings.status, status) : undefined)
+        const now = new Date()
+        const where = and(
+            eq(screenings.showId, showId),
+            status ? eq(screenings.status, status) : undefined,
+            when === "upcoming" ? gt(screenings.startsAt, now) : undefined,
+            when === "past" ? lte(screenings.startsAt, now) : undefined,
+        )
+        // Past screenings read most recent first; everything else soonest first.
+        const order = when === "past"
+            ? [desc(screenings.startsAt), desc(screenings.id)]
+            : [asc(screenings.startsAt), asc(screenings.id)]
 
         const [rows, total] = await Promise.all([
             db.select({ screening: screenings, venue: { id: venues.id, name: venues.name, city: venues.city } })
                 .from(screenings)
                 .innerJoin(venues, eq(screenings.venueId, venues.id))
                 .where(where)
-                .orderBy(asc(screenings.startsAt), asc(screenings.id))
+                .orderBy(...order)
                 .limit(pageSize)
                 .offset((page - 1) * pageSize),
             db.$count(screenings, where),

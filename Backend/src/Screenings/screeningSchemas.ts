@@ -16,6 +16,9 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
 export const screeningStatusValues = ["scheduled", "cancelled"] as const;
+// Time filter for lists: upcoming = not yet started, past = started. Combine
+// with status=scheduled for the organizer's Upcoming / Past tabs.
+export const screeningWhenValues = ["upcoming", "past"] as const;
 
 const startsAtSchema = z
     .iso.datetime({
@@ -75,6 +78,9 @@ export const screeningIdParamSchema = idParam("screeningId");
 export const listScreeningsQuerySchema = paginationSchema.extend({
     status: z.enum(screeningStatusValues, {
         message: `Status must be one of: ${screeningStatusValues.join(", ")}`,
+    }).optional(),
+    when: z.enum(screeningWhenValues, {
+        message: `When must be one of: ${screeningWhenValues.join(", ")}`,
     }).optional(),
 });
 
