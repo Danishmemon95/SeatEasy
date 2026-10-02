@@ -58,9 +58,10 @@ Beyond those goals the code aims for security that holds up in production (enume
 | Auth: register, verify email, login, logout, session | ✅ Built (backend + frontend) |
 | Organizer applications: apply, admin review, role promotion | ✅ Built (backend + frontend) |
 | Global navigation, organizer/admin shells | ✅ Built (frontend) |
-| Venues and seat layouts | ✅ Backend built · ⏳ frontend planned |
-| Events (shows): draft/publish | ✅ Backend built · ⏳ frontend planned |
-| Screenings: scheduling, pricing, seat inventory | ✅ Backend built · ⏳ frontend planned |
+| Venues and seat layouts | ✅ Built (backend + frontend) |
+| Events (shows): draft/publish | ✅ Built (backend + frontend) |
+| Screenings: scheduling, pricing, seat inventory | ✅ Built (backend + frontend) |
+| Organizer dashboard: live counts, next-steps checklist | ✅ Built (frontend) |
 | Public browsing for buyers | ❌ Not started |
 | Seat holds, bookings, payment | ❌ Not started (tables exist) |
 | Email delivery | ❌ Verification links are logged to the server console |
@@ -170,7 +171,7 @@ stateDiagram-v2
     Rejected --> [*]: stays buyer (cannot re-apply today)
 ```
 
-### 4.3 Organizer: from venue to sellable showtime (backend built)
+### 4.3 Organizer: from venue to sellable showtime (built)
 
 ```mermaid
 flowchart LR
@@ -370,22 +371,27 @@ SeatEase/
     ├── design.md                    ★ the design system (tokens, components, seat map)
     ├── docs/
     │   ├── navigation-plan.md       header + sidebar navigation plan (implemented)
-    │   └── venues-events-screenings-plan.md   next frontend phase plan
+    │   └── venues-events-screenings-plan.md   organizer venues/events/screenings plan (implemented)
     └── src/
         ├── main.tsx                 mounts <Provider store> + <RouterProvider>
         ├── App.tsx                  root layout route: restores session once
         ├── index.css                design tokens (CSS vars), dark tokens, base styles
-        ├── app/                     store.ts, typed hooks
-        ├── api/                     RTK Query APIs: authApi, applicationApi (+ error helpers)
-        ├── features/auth/           LoginForm, RegisterForm, authSlice, useAuth
+        ├── app/                     store.ts, typed hooks, urlState (?tab/?page/filters), useDocumentTitle
+        ├── api/                     baseQuery, errors, authApi, applicationApi, catalogApi + catalog/* endpoints
+        ├── features/
+        │   ├── auth/                LoginForm, RegisterForm, authSlice, useAuth
+        │   ├── venues/              VenueForm, seat layout editor (map, add-rows panel, seat popover)
+        │   ├── events/              EventForm, EventPublishDialog, Poster
+        │   ├── screenings/          ScreeningForm, ShowScreeningsTab, ScreeningDateGroup
+        │   └── toast/               toast slice, container, useToast
         ├── routes/                  route tree, ProtectedRoute, PublicOnlyRoute, RouteFallback
-        ├── pages/                   route screens (account, apply, verify, admin/, organizer/)
+        ├── pages/                   route screens (account, apply, verify, admin/, organizer/{venues,events,screenings})
         ├── components/
         │   ├── layout/              AppHeader, AuthedLayout, AuthLayout, OrganizerShell, AdminShell, SectionSidebar
-        │   ├── ui/                  Button, Input, Card, Badge, Alert
+        │   ├── ui/                  primitives (§12.9)
         │   └── application/         ApplicationDetailPanel (admin review)
-        ├── types/                   auth.types.ts, application.types.ts
-        └── utils/validation.ts      client-side validators mirroring backend zod rules
+        ├── types/                   auth, application and catalog types
+        └── utils/                   validation, catalogValidation, catalogDisplay, datetime (IST, INR)
 ```
 
 ---
@@ -572,10 +578,10 @@ Each module below covers purpose, rules and endpoints. Full request and response
 
 | Endpoint | Guard | Behaviour |
 | :--- | :--- | :--- |
-| `GET /api/application` | protectRoute | The caller's application (404 if none) |
-| `POST /api/application` | protectRoute + buyer | `{ description }` (10–2000 chars). One application per user; a second attempt returns 400 `already applied`. |
-| `GET /api/application/all` | protectRoute + admin | Every application (not paginated) |
-| `POST /api/application/decision` | protectRoute + admin | `{ applicationId, status }`. One transaction: update status, reviewer and time, and if `approved`, set `users.role = 'organizer'`. |
+| `GET /api/application` | protectRoute | The caller's latest application (404 if none) |
+| `POST /api/application` | protectRoute + buyer | `{ description }` (10–2000 chars). One application per user; a second attempt returns 409. |
+| `GET /api/application/all` | protectRoute + admin | Every application, newest first (not paginated) |
+| `POST /api/application/decision` | protectRoute + admin | `{ applicationId, status: "approved" \| "rejected" }`. One transaction: only a **pending** application can be decided (otherwise 409); it sets status, reviewer, review time and `updatedAt`, and on `approved` promotes the requester to `organizer` **only if they are still a buyer**, so an admin is never downgraded. |
 
 ### 9.3 Venues (`src/Venues`)
 
@@ -985,18 +991,18 @@ Errors: 400, 401 `Invalid email or password`, 403 `{ code: "EMAIL_NOT_VERIFIED" 
 
 ### 11.3 Organizer applications
 
-**GET `/application`** returns `200 { success, message, application }`, or 404 `No application found`.
+**GET `/application`** returns `200 { success, message, application }` (the caller's latest), or 404 `No application found`.
 
 **POST `/application`** (buyer)
 ```json
 // request
 { "description": "We run a 3-screen cinema in Pune and want to list our shows." }
 // 201
-{ "success": true, "message": "Application sent", "application": [ { "id": 5, "requesterId": 3, "status": "pending", … } ] }
+{ "success": true, "message": "Application sent", "application": { "id": 5, "requesterId": 3, "status": "pending", … } }
 ```
-Note: `application` is currently returned as a **one-element array** (§16). Errors: 400 validation, 400 `already applied`, 403 for non-buyers.
+Errors: 400 validation, 409 `You have already submitted an application`, 403 for non-buyers.
 
-**GET `/application/all`** (admin) returns `200 { success, message, applications: OrgApplication[] }`.
+**GET `/application/all`** (admin) returns `200 { success, message, applications: OrgApplication[] }`, newest first.
 
 **POST `/application/decision`** (admin)
 ```json
@@ -1005,9 +1011,9 @@ Note: `application` is currently returned as a **one-element array** (§16). Err
 // 200
 { "success": true, "message": "Application approved",
   "application": { "id": 5, "status": "approved", "reviewerId": 1, "reviewedAt": "…", … },
-  "user": { "id": 3, "role": "organizer", … } }   // user is null unless approved
+  "user": { "id": 3, "role": "organizer" } }   // only id and role; null unless a buyer was promoted
 ```
-Errors: 400, 404 `Application not found`.
+A rejection returns `"message": "Application rejected"`. Errors: 400 (status must be `approved` or `rejected`), 404 `Application not found`, 409 `This application has already been reviewed`.
 
 ### 11.4 Venues
 
@@ -1015,7 +1021,7 @@ Errors: 400, 404 `Application not found`.
 
 | Endpoint | Request | Success | Errors |
 | :--- | :--- | :--- | :--- |
-| GET `/venues?page=1&pageSize=20` | — | `{ venues: Venue[], pagination }` | 400 query |
+| GET `/venues?page=1&pageSize=20&ownerId=` | `ownerId` optional (admins: one organizer's venues) | `{ venues: (Venue & { seatCount })[], pagination }`, newest first | 400 query |
 | GET `/venues/:venueId` | — | `{ venue }` | 404 |
 | POST `/venues` | `{ name, city, address }` | 201 `{ venue }` | 400, 403 admin |
 | PUT `/venues/:venueId` | any subset of the create fields | `{ venue }` | 400 (including an empty body), 404 |
@@ -1029,7 +1035,8 @@ Errors: 400, 404 `Application not found`.
 ```json
 { "success": true, "message": "Seats fetched successfully",
   "seats": [ { "id": 1, "venueId": 7, "rowLabel": "A", "seatNumber": 1, "category": "gold", … }, … ],
-  "summary": { "gold": 120, "platinum": 40, "sofa": 20, "total": 180 } }
+  "summary": { "gold": 120, "platinum": 40, "sofa": 20, "total": 180 },
+  "layoutLocked": false }   // true while an upcoming screening depends on the layout
 ```
 
 **POST `/venues/:venueId/seats`**
@@ -1108,7 +1115,7 @@ Errors for create and update:
 
 | Endpoint | Request | Success | Errors |
 | :--- | :--- | :--- | :--- |
-| GET `/shows/:showId/screenings?status=scheduled&page=1` | — | `{ screenings: Screening[], pagination }`, ordered by start time | 404 show |
+| GET `/shows/:showId/screenings?status=scheduled&when=upcoming&page=1` | `status` and `when` (`upcoming` = not yet started, `past` = started) are optional | `{ screenings: Screening[], pagination }`, by start time; `when=past` is most recent first | 404 show |
 | GET `/screenings/:screeningId` | — | `{ screening }` | 404 |
 | PUT `/screenings/:screeningId` | strict: at least one of `venueId`, `startsAt`, `prices` | `{ screening }` | as create, plus 409 cancelled / started / seats sold / changed concurrently |
 | POST `/screenings/:screeningId/cancel` | — | `{ screening }` | 404, 409 already cancelled / started |
@@ -1130,6 +1137,7 @@ flowchart TD
     AL --> Acc["/account · /apply-for-organization"]
     AL --> OrgG["ProtectedRoute organizer|admin<br/>→ OrganizerShell (sidebar)"]
     OrgG --> OD["/organizer/dashboard"]
+    OrgG --> Cat["/organizer/venues · /organizer/events<br/>/organizer/screenings (lazy-loaded)"]
     AL --> AdmG["ProtectedRoute admin<br/>→ AdminShell (sidebar)"]
     AdmG --> AA["/admin/applications"]
 ```
@@ -1165,6 +1173,10 @@ The frontend is a Vite + React 19 single-page app. **Server state** (anything th
 | `/account` | `AccountPage` | `ProtectedRoute` |
 | `/apply-for-organization` | `ApplyForOrganizationPage` | `ProtectedRoute` |
 | `/organizer`, `/organizer/dashboard` | `OrganizerDashboardPage` in `OrganizerShell` | `ProtectedRoute allowedRoles={['organizer','admin']}` |
+| `/organizer/venues`, `/:venueId`, `/:venueId/edit` | venue list, detail (Layout · Details tabs), edit | same, lazy-loaded |
+| `/organizer/events`, `/:showId`, `/:showId/edit` | event list, detail (Screenings · Details tabs), edit | same, lazy-loaded |
+| `/organizer/events/:showId/screenings/new`, `/organizer/screenings/:id`, `/:id/edit` | schedule, screening detail, edit | same, lazy-loaded |
+| `/organizer/venues/new`, `/organizer/events/new` | create forms | nested `ProtectedRoute allowedRoles={['organizer']}` (the API 403s admins) |
 | `/admin`, `/admin/applications` | `AdminApplicationsPage` in `AdminShell` | `ProtectedRoute allowedRoles={['admin']}` |
 | `*` | `NotFoundPage` | — |
 
@@ -1180,14 +1192,18 @@ The frontend is a Vite + React 19 single-page app. **Server state** (anything th
 | :--- | :--- | :--- | :--- |
 | `authApi.ts` | `authApi` | `checkAuth` (query), `login`, `register`, `logout` (mutations), `verifyEmail` (query) | `User` |
 | `applicationApi.ts` | `applicationApi` | `getMyApplication`, `applyForOrganization`, `getApplicationList`, `applicationDecision` | `Application`, `ApplicationList`, `User` |
+| `catalogApi.ts` + `catalog/*Endpoints.ts` | `catalogApi` | venues, seats, shows and screenings, added with `injectEndpoints` | `Venue`, `VenueSeats`, `Show`, `Screening` |
+
+Venues, seats, shows and screenings share **one** API slice because they invalidate each other (scheduling a screening locks its venue's layout; deleting a show removes its screenings), and RTK Query tags only work within one `createApi`. A 401 from any catalog call invalidates the `User` tag, so an expired session sends the user to `/login` without per-page handling.
 
 Shared conventions:
-- `fetchBaseQuery({ baseUrl: VITE_API_URL || 'http://localhost:5000/api', credentials: 'include' })`, so the cookie travels with every call.
-- Mutations invalidate tags **only on success**: `invalidatesTags: (result) => result ? [...] : []`.
-- Error helpers exported from `authApi.ts`:
+- One `baseQuery.ts`: `fetchBaseQuery({ baseUrl: VITE_API_URL || 'http://localhost:5000/api', credentials: 'include' })`, so the cookie travels with every call.
+- Mutations invalidate tags **only on success**: `invalidatesTags: (result) => result ? [...] : []`. The exception is a 409 that means the cached copy is stale (layout locked, screening became read-only, show already published): that also refetches, so the page catches up.
+- Error helpers live in `errors.ts` (re-exported from `authApi.ts` for older imports):
   - `getRtkErrorMessage(err)`: the best human message, with fallbacks for network, 401, 403, 404 and 500.
   - `getFieldErrors(err)`: turns the API's `errors[]` into `{ field: message }` for forms.
   - `getApiErrorCode(err)`: reads the machine `code` (for example `EMAIL_NOT_VERIFIED`).
+  - `getErrorStatus(err)`: the HTTP status, or null for network failures.
 
 The store (`app/store.ts`) registers each API's reducer and middleware, the `auth` UI slice, and `setupListeners` (refetch on focus/reconnect). Use the typed hooks `useAppDispatch` / `useAppSelector` from `app/hooks.ts`.
 
@@ -1196,6 +1212,9 @@ The store (`app/store.ts`) registers each API's reducer and middleware, the `aut
 | Slice | State | Purpose |
 | :--- | :--- | :--- |
 | `auth` (`features/auth/authSlice.ts`) | `{ successMessage }` | A UI message that must survive a tab or route switch (for example "check your email"). Session data is **not** stored here. |
+| `toast` (`features/toast/toastSlice.ts`) | queued toasts | Non-blocking confirmations ("Venue created", "Row C deleted"), shown in an `aria-live="polite"` region. Use `useToast()`. |
+
+Filters, tabs and pagination live in the URL (`app/urlState.ts`: `useTabParam`, `usePageParam`, `useChoiceParam`), so they survive a refresh and can be shared as links.
 
 ### 12.7 Pages
 
@@ -1208,7 +1227,10 @@ The store (`app/store.ts`) registers each API's reducer and middleware, the `aut
 | `AccountPage` | Profile card (avatar initial, role, verified badge), role-aware shortcut cards, sign out. |
 | `ApplyForOrganizationPage` | Five states: admin (no need to apply), organizer (already approved), loading, existing application (pending / approved / rejected with its text), or the application form. |
 | `AdminApplicationsPage` | Filter pills with counts (all / pending / approved / rejected), expandable rows, and `ApplicationDetailPanel` with approve/reject. |
-| `OrganizerDashboardPage` | Welcome header and placeholder action cards. Wired up in the next phase. |
+| `OrganizerDashboardPage` | Live event and venue counts, and a next-steps checklist (venue → seat layout → event → screening → publish) whose first unfinished step is the primary action. Admins see the counts only. |
+| `VenueListPage` / `VenueFormPage` / `VenueDetailPage` | Paginated list with seat counts (Owner column for admins); create/edit sending only changed fields; detail with the seat **layout editor** (map with gaps as aisles, add rows with quick fill, per-seat category/remove, row delete, read-only lock banner) and delete. |
+| `EventListPage` / `EventFormPage` / `EventDetailPage` | List with All/Draft/Published filter and posters; create/edit with poster preview and the duration lock; detail with publish (one-way, confirmed), delete, and the Screenings tab (Upcoming/Past/Cancelled/All, grouped by IST day). |
+| `ScreeningFormPage` / `ScreeningDetailPage` | Three-step schedule/edit form (venue → date & time with the buffer spelled out → prices per category); read-only once cancelled, started or sold. Detail shows inventory, prices, cancel and delete. |
 | `ForbiddenPage`, `NotFoundPage` | 403 and 404 screens. |
 
 ### 12.8 Layout components
@@ -1219,21 +1241,30 @@ The store (`app/store.ts`) registers each API's reducer and middleware, the `aut
 | `AuthedLayout` | Mounts `AppHeader` **once** around every authenticated route. |
 | `AuthLayout` | Narrow centered column (440px card) with brand header and editorial footer, used by the auth, verify, account and apply pages. |
 | `SectionSidebar` | 224px left rail on desktop and a horizontal pill scroller on mobile. Supports disabled "Soon" items. |
-| `OrganizerShell` / `AdminShell` | Sidebar + `<Outlet/>`. Organizer items: Dashboard (live); Events, Venues and Analytics (Soon). Admin items: Applications (live); Users and Events (Soon). |
+| `OrganizerShell` / `AdminShell` | Sidebar + `<Outlet/>`. Organizer items: Dashboard, Events, Venues (live); Analytics (Soon). Admin items: Applications (live), Users (Soon), Events (links to `/organizer/events`). The content column is `min-w-0` with no `overflow`, so sticky elements inside pages stick to the viewport. |
 
 ### 12.9 UI primitives (`components/ui`)
 
 | Component | API highlights |
 | :--- | :--- |
-| `Button` | `variant: primary | secondary | ghost | danger | link`, `size: sm | md | lg`, `isLoading`, `leftIcon`/`rightIcon`, forwardRef. Micro-lift hover and a focus-visible ring. |
+| `Button` | `variant: primary | secondary | ghost | danger | danger-ghost | link`, `size: sm | md | lg`, `isLoading`, `leftIcon`/`rightIcon`, forwardRef. Micro-lift hover and a focus-visible ring. |
 | `Input` | `label` (caption style), `error` (danger border and message with icon, `aria-invalid` / `aria-describedby`), `helperText`, optional `leftIcon`, `rightAdornment` (such as a password reveal). |
 | `Card` | `elevation: 0–3`, `isInteractive` (hover lift and stronger border). |
 | `Badge` | `variant: neutral | accent | success | warning | danger | info`, caption style. |
 | `Alert` | `variant: danger | success | warning | info`, `title`, optional `onClose`, `role="alert"`. |
+| `Select`, `Textarea` | Same shell as `Input`; `Textarea` takes `maxChars` for a tabular counter. |
+| `Modal`, `ConfirmDialog` | Focus-trapped dialog (bottom sheet on mobile); `ConfirmDialog` takes `tone: danger | accent`, a confirm label naming the action, and an inline `error` so a 409 keeps it open. |
+| `Tabs` / `TabPanel` | Caption tabs with a sliding indicator; state in `?tab=`. |
+| `DataTable`, `Pagination` | Table that stacks to cards under `md`; "Page 2 of 5 · 43 venues". |
+| `FilterPills` | Segmented filter (`aria-pressed`), used for status filters. |
+| `PageHeader` | Breadcrumbs, eyebrow, serif title, `meta`, `media` (e.g. a poster) and actions. |
+| `EmptyState`, `Skeleton`, `QueryErrorState` | Empty state with one action; content-shaped loading blocks; in-shell 404 "not found" or error with Retry. |
+| `StatusBadge`, `SeatSwatch` / `CategoryLegend` | Draft/published/scheduled/cancelled/past as text badges; seat category swatches. |
+| `UnsavedChangesGuard` | Blocks navigation away from a dirty form. |
 
-### 12.10 Client validation (`utils/validation.ts`)
+### 12.10 Client validation and formatting (`utils/`)
 
-Validators mirror the backend zod rules and messages: `validateEmail`, `validateUsername`, `validatePassword`, `validateLoginPassword`, `evaluatePasswordStrength` (score 0–4 with a per-rule checklist) and `sanitizeInput`. **The backend remains the authority.** These checks only give faster feedback.
+Validators mirror the backend zod rules and messages: `validateEmail`, `validateUsername`, `validatePassword`, `validateLoginPassword`, `evaluatePasswordStrength` (score 0–4 with a per-rule checklist) and `sanitizeInput`. `catalogValidation.ts` does the same for venues, seat rows, events and screenings. `datetime.ts` handles IST (`toApiDateTime` sends `+05:30`; showtimes always render in `Asia/Kolkata`) and INR formatting. **The backend remains the authority.** These checks only give faster feedback.
 
 ### 12.11 Frontend configuration
 
@@ -1390,22 +1421,19 @@ These are the known issues in the current code, useful when picking up work.
 | 1 | Email | Verification links are only logged. No email provider is integrated. |
 | 2 | Email | The logged link points at the **backend** `/api/auth/verify` (returns JSON), not the frontend `/verify` page. |
 | 3 | Auth | No password reset. The "Forgot password?" button does nothing. No resend-verification endpoint (re-registering resends). |
-| 4 | Applications | A rejected user can't re-apply (`already applied`). |
-| 5 | Applications | `decision` doesn't check the current status, so an application can be re-decided. Approved → rejected does **not** demote the user. `updatedAt` isn't set. |
-| 6 | Applications | `POST /application` returns `application` as a one-element array. The frontend type expects an object. |
-| 7 | Applications | `GET /application/all` isn't paginated and returns requester ids, not names or emails. |
-| 8 | Buyers | No public endpoints yet: nothing to browse or book. |
-| 9 | Booking | The `bookings` table and seat `held`/`booked` states exist, but no hold, booking or payment endpoints. `hasSoldSeats` treats expired holds as sold until expiry is implemented. |
-| 10 | Screenings | Only seat **counts** are exposed. No per-seat inventory endpoint, which the seat maps need. |
-| 11 | Venues | The list has no seat count or capacity, and admins have no owner filter. |
-| 12 | Timezone | The API accepts any offset. The product assumes India (IST) for display. |
-| 13 | DB | `updated_at` isn't trigger-maintained. Code must set it on every update. |
-| 14 | Frontend | `AccountPage` and `ApplyForOrganizationPage` still render inside `AuthLayout`, which has its own brand header, so they show two headers under the global `AppHeader`. |
-| 15 | Frontend | Organizer dashboard cards are placeholders. The Venues, Events, Analytics and Admin Users/Events sidebar items are "Soon". |
-| 16 | Frontend | Dark-mode tokens exist, but there is no theme toggle. |
-| 17 | Quality | No automated tests (backend or frontend). No CI. |
-| 18 | Ops | No deployment config. Cross-domain cookies need `sameSite`/CORS changes once the frontend and backend run on different domains. |
-| 19 | Ops | No structured logging, request ids or health endpoint. A failed DB check at boot is logged but not fatal. |
+| 4 | Applications | A rejected user can't re-apply (409). An application can only be decided once, so a mistaken decision can't be reversed in the app. |
+| 5 | Applications | `GET /application/all` isn't paginated and returns requester ids, not names or emails. |
+| 6 | Buyers | No public endpoints yet: nothing to browse or book. |
+| 7 | Booking | The `bookings` table and seat `held`/`booked` states exist, but no hold, booking or payment endpoints. `hasSoldSeats` treats expired holds as sold until expiry is implemented. |
+| 8 | Screenings | Only seat **counts** are exposed. No per-seat inventory endpoint, which the seat maps need. |
+| 9 | Timezone | The API accepts any offset. The product assumes India (IST) for display. |
+| 10 | DB | `updated_at` isn't trigger-maintained. Code must set it on every update. |
+| 11 | Frontend | `AccountPage` and `ApplyForOrganizationPage` still render inside `AuthLayout`, which has its own brand header, so they show two headers under the global `AppHeader`. |
+| 12 | Frontend | Analytics and Admin Users are still "Soon". The dashboard's checklist judges the screening and publish steps by the newest event only (no cross-event screening count in the API). The venue picker when scheduling loads at most 100 venues. |
+| 13 | Frontend | Dark-mode tokens exist, but there is no theme toggle. |
+| 14 | Quality | No automated tests (backend or frontend). No CI. |
+| 15 | Ops | No deployment config. Cross-domain cookies need `sameSite`/CORS changes once the frontend and backend run on different domains. |
+| 16 | Ops | No structured logging, request ids or health endpoint. A failed DB check at boot is logged but not fatal. |
 
 ---
 
@@ -1413,7 +1441,7 @@ These are the known issues in the current code, useful when picking up work.
 
 This is a suggested order. Each step builds on the previous one.
 
-1. **Organizer UI for venues, seat layouts, events and screenings.** The full plan is in `Frontend/docs/venues-events-screenings-plan.md`.
+1. ~~**Organizer UI for venues, seat layouts, events and screenings.**~~ Done; see `Frontend/docs/venues-events-screenings-plan.md`. Still open from it: a manual end-to-end run against a live backend (§12 of that plan) and the optional bulk seat-category change.
 2. **Public catalog API:**
    - published events, filterable by city and date
    - one event's upcoming screenings
@@ -1442,6 +1470,6 @@ This is a suggested order. Each step builds on the previous one.
 | :--- | :--- |
 | [`Frontend/design.md`](../Frontend/design.md) | Full design system: tokens, type, components, seat-map spec, accessibility |
 | [`Frontend/docs/navigation-plan.md`](../Frontend/docs/navigation-plan.md) | The header and section-sidebar navigation (implemented) |
-| [`Frontend/docs/venues-events-screenings-plan.md`](../Frontend/docs/venues-events-screenings-plan.md) | Detailed plan for the organizer venue, seat layout, event and screening UI |
+| [`Frontend/docs/venues-events-screenings-plan.md`](../Frontend/docs/venues-events-screenings-plan.md) | The organizer venue, seat layout, event and screening UI (implemented) |
 | `Backend/src/db/schema.ts` | The authoritative data model |
 | `Backend/src/Screenings/screeningRules.ts` | The locking convention and scheduling rules |

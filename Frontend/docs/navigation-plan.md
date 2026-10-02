@@ -1,6 +1,7 @@
 # Navigation Plan: Header Bar + Section Sidebar
 
-**Status:** Proposed, not yet implemented
+**Status:** Implemented (§1–3: `AppHeader`, `AuthedLayout`, `SectionSidebar` with organizer/admin shells). The sidebar's Events and Venues entries are now live; Analytics and Admin Users are still "Soon".
+**Not done from §4 cleanup:** `AuthLayout` still renders its own brand header, so `AccountPage` and `ApplyForOrganizationPage` show two headers under `AppHeader`; `AccountPage` still has its shortcut cards; `ApplyForOrganizationPage` still has its "Back to Account" buttons.
 **Scope:** Frontend only (`Frontend/src`)
 
 ## Context
