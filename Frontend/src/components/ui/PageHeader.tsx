@@ -18,10 +18,12 @@ export interface PageHeaderProps {
   breadcrumbs?: Crumb[];
   /** Content beside the title, e.g. a status badge. */
   meta?: React.ReactNode;
+  /** Shown to the left of the title block, e.g. an event poster. */
+  media?: React.ReactNode;
 }
 
 /** The eyebrow + serif title + actions block shared by the organizer pages. */
-export const PageHeader: React.FC<PageHeaderProps> = ({ eyebrow, title, description, actions, breadcrumbs, meta }) => (
+export const PageHeader: React.FC<PageHeaderProps> = ({ eyebrow, title, description, actions, breadcrumbs, meta, media }) => (
   <header className="flex flex-col gap-3">
     {breadcrumbs && breadcrumbs.length > 0 && (
       <nav aria-label="Breadcrumb">
@@ -45,15 +47,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ eyebrow, title, descript
     )}
 
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-      <div className="flex flex-col gap-1 min-w-0">
-        {eyebrow && <span className="text-caption text-[var(--ink-muted)]">{eyebrow}</span>}
-        <div className="flex items-center flex-wrap gap-3">
-          <h1 className="font-display text-[28px] leading-[34px] md:text-[36px] md:leading-[42px] text-[var(--ink)] break-words min-w-0">
-            {title}
-          </h1>
-          {meta}
+      <div className="flex items-end gap-5 min-w-0">
+        {media}
+        <div className="flex flex-col gap-1 min-w-0">
+          {eyebrow && <span className="text-caption text-[var(--ink-muted)]">{eyebrow}</span>}
+          <div className="flex items-center flex-wrap gap-3">
+            <h1 className="font-display text-[28px] leading-[34px] md:text-[36px] md:leading-[42px] text-[var(--ink)] break-words min-w-0">
+              {title}
+            </h1>
+            {meta}
+          </div>
+          {description && <div className="text-[15px] leading-6 text-[var(--ink-secondary)] mt-1">{description}</div>}
         </div>
-        {description && <div className="text-[15px] leading-6 text-[var(--ink-secondary)] mt-1">{description}</div>}
       </div>
       {actions && <div className="flex items-center flex-wrap gap-2 shrink-0">{actions}</div>}
     </div>

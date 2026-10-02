@@ -1,8 +1,9 @@
 /*
  * Display helpers shared by the catalog components: category names and
- * seat-colour classes, and the organizer-facing screening status.
+ * seat-colour classes, event type and age-rating labels, and the
+ * organizer-facing screening status.
  */
-import type { ScreeningStatus, SeatCategory, ShowStatus } from '../types/catalog.types';
+import type { AgeRating, ScreeningStatus, SeatCategory, ShowStatus, ShowType } from '../types/catalog.types';
 
 export const CATEGORY_LABELS: Record<SeatCategory, string> = {
   gold: 'Gold',
@@ -23,6 +24,22 @@ export const categoryFillClass: Record<SeatCategory, string> = {
   sofa: 'bg-[var(--seat-sofa-fill)]',
 };
 
+export const SHOW_TYPE_LABELS: Record<ShowType, string> = {
+  movie: 'Movie',
+  concert: 'Concert',
+  play: 'Play',
+  comedy: 'Comedy',
+  sports: 'Sports',
+  other: 'Other',
+};
+
+/** CBFC certificate meanings, shown beside the rating picker. */
+export const AGE_RATING_MEANINGS: Record<AgeRating, string> = {
+  U: 'Universal: suitable for all ages',
+  UA: 'Parental guidance for children under 12',
+  A: 'Adults only (18+)',
+};
+
 /** `past` is derived on the client: a scheduled screening whose start time has gone by. */
 export type DisplayStatus = ShowStatus | ScreeningStatus | 'past';
 
@@ -32,3 +49,19 @@ export const screeningDisplayStatus = (
   now = Date.now(),
 ): DisplayStatus =>
   screening.status === 'scheduled' && new Date(screening.startsAt).getTime() <= now ? 'past' : screening.status;
+
+/**
+ * Why a screening can no longer be edited, or null if it can. Mirrors the
+ * checks in the API's updateScreening; cancelling stays possible in the last case.
+ */
+export const screeningLockReason = (
+  screening: { status: ScreeningStatus; startsAt: string; seats: { held: number; booked: number } },
+  now = Date.now(),
+): string | null => {
+  if (screening.status === 'cancelled') return "Cancelled screenings can't be changed.";
+  if (new Date(screening.startsAt).getTime() <= now) return 'This screening has started.';
+  if (screening.seats.held + screening.seats.booked > 0) {
+    return 'Seats are held or booked, so venue, time and prices are locked. You can still cancel it.';
+  }
+  return null;
+};

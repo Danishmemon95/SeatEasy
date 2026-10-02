@@ -212,6 +212,8 @@ export type ScreeningUpdate = Partial<ScreeningInput>;
 
 export interface ScreeningListQuery extends PageQuery {
   status?: ScreeningStatus;
+  /** upcoming = not yet started (soonest first); past = started (most recent first). */
+  when?: 'upcoming' | 'past';
 }
 
 export interface ScreeningListResponse extends ApiEnvelope {

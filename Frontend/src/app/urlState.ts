@@ -50,3 +50,27 @@ export const usePageParam = () => {
 
   return [page, setPage] as const;
 };
+
+/**
+ * A filter that lives in the URL (`?status=draft`). The first choice is the
+ * default and is kept out of the URL; an unknown value falls back to it.
+ * Changing the filter drops `?page=`, since page 3 of one filter means nothing
+ * in another.
+ */
+export const useChoiceParam = <T extends string>(param: string, choices: readonly T[]) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const raw = searchParams.get(param);
+  const value = (choices.find((c) => c === raw) ?? choices[0]) as T;
+
+  const setValue = (next: T) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next === choices[0]) params.delete(param);
+      else params.set(param, next);
+      params.delete('page');
+      return params;
+    });
+  };
+
+  return [value, setValue] as const;
+};
