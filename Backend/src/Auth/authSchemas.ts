@@ -1,18 +1,8 @@
 import { z } from "zod";
 
-/**
- * Request shapes for the auth endpoints.
- *
- * These mirror the client-side rules in Frontend/src/utils/validation.ts, but
- * these are the ones that actually count — the frontend checks are a courtesy
- * to the user and can be bypassed by anyone calling the API directly.
- */
-
 const passwordSchema = z
     .string()
     .min(8, "Password must be at least 8 characters long")
-    // Bcrypt silently truncates at 72 bytes; rejecting longer input is clearer
-    // than accepting a password whose tail is ignored.
     .max(72, "Password cannot exceed 72 characters")
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[a-z]/, "Password must contain a lowercase letter")
@@ -34,8 +24,6 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-    // Deliberately lax: login validates credentials, not format. A strict rule
-    // here would tell an attacker which addresses are even shaped like ours.
     email: z.string().trim().toLowerCase().min(1, "Please provide your email"),
     password: z.string().min(1, "Please provide your password"),
 });

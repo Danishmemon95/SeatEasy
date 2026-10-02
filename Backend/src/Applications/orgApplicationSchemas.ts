@@ -1,12 +1,5 @@
 import { z } from "zod";
 
-/**
- * Request shapes for the org-application endpoints.
- *
- * These are the ones that actually count — inputs come straight from
- * req.body/req.params and must not be trusted until they pass through here.
- */
-
 export const applyOrgSchema = z.object({
     description: z
         .string()
@@ -15,15 +8,15 @@ export const applyOrgSchema = z.object({
         .max(2000, "Description cannot exceed 2000 characters"),
 });
 
-// Mirrors the applicationStatusEnum in db/schema.ts. Kept as an explicit list
-// (rather than importing the pg enum) so this file has no DB dependency and
-// the accepted values are visible at a glance.
 export const applicationStatusValues = ["pending", "approved", "rejected"] as const;
+
+// An admin decision moves an application out of "pending", never back into it.
+export const applicationDecisionValues = ["approved", "rejected"] as const;
 
 export const applicationDecisionSchema = z.object({
     applicationId: z.coerce.number().int().positive("A valid applicationId is required"),
-    status: z.enum(applicationStatusValues, {
-        message: `Status must be one of: ${applicationStatusValues.join(", ")}`,
+    status: z.enum(applicationDecisionValues, {
+        message: `Status must be one of: ${applicationDecisionValues.join(", ")}`,
     }),
 });
 

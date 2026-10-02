@@ -10,15 +10,8 @@ import { createVerificationToken, hashVerificationToken } from "../utils/verific
 import { registerSchema, loginSchema, verifyQuerySchema } from "./authSchemas";
 import { env } from "../config/env";
 
-/**
- * Single message for every failed login, whatever the cause.
- *
- * Distinguishing "no such user" from "wrong password" would let anyone
- * enumerate registered accounts one request at a time.
- */
 const INVALID_CREDENTIALS = "Invalid email or password";
 
-/** Dummy hash used to keep the timing of a missing-user login honest. */
 const DUMMY_HASH = "$2b$10$CwTycUXWue0Thq9StjUM0uJ8.LMB8Zt3aB0iZ0OqQvFB6vJPQXPvC";
 
 export const register = async (req: Request, res: Response) => {
@@ -37,40 +30,46 @@ export const register = async (req: Request, res: Response) => {
         const { username, email, password } = parsed.data;
 
         const [existingUser] = await db
-            .select({ id: users.id, email: users.email })
+            .select({ id: users.id, email: users.email, isVerified: users.isVerified })
             .from(users)
             .where(or(eq(users.email, email), eq(users.username, username)))
             .limit(1);
 
-        const { token, tokenHash, expiresAt } = createVerificationToken();
+        const passwordHash = await hashPassword(password);
 
-        // Reuse one response for both outcomes so registration cannot be used to
-        // probe which emails and usernames are taken.
         const acceptedResponse = {
-            message:
-                "If that email is available, a verification link has been sent. Please check your inbox.",
+            message: "If that email is available, a verification link has been sent. Please check your inbox.",
         };
 
         if (existingUser) {
-            // Resend to the address on file rather than exposing the collision.
-            // A username collision is not resent to — the address may belong to
-            // someone else entirely.
-            if (existingUser.email === email) {
-                await db
-                    .update(users)
-                    .set({
-                        verificationTokenHash: tokenHash,
-                        verificationTokenExpires: expiresAt,
-                        updatedAt: new Date(),
-                    })
-                    .where(and(eq(users.id, existingUser.id), eq(users.isVerified, false)));
+            if (existingUser.email !== email) {
+                return res.status(202).json(acceptedResponse);
+            }
 
+            if (existingUser.isVerified) {
+                console.log(`Register attempt for already verified account: ${email}`);
+                return res.status(202).json(acceptedResponse);
+            }
+
+            const { token, tokenHash, expiresAt } = createVerificationToken();
+
+            const updated = await db
+                .update(users)
+                .set({
+                    verificationTokenHash: tokenHash,
+                    verificationTokenExpires: expiresAt,
+                    updatedAt: new Date(),
+                })
+                .where(and(eq(users.id, existingUser.id), eq(users.isVerified, false)))
+                .returning({ id: users.id });
+
+            if (updated.length > 0) {
                 console.log(`Verify link: ${env.SERVER_URL}/api/auth/verify?token=${token}`);
             }
             return res.status(202).json(acceptedResponse);
         }
 
-        const passwordHash = await hashPassword(password);
+        const { token, tokenHash, expiresAt } = createVerificationToken();
 
         await db.insert(users).values({
             username,
@@ -80,7 +79,6 @@ export const register = async (req: Request, res: Response) => {
             verificationTokenExpires: expiresAt,
         });
 
-        // Emailing is not wired up yet; the link goes to the server log for now.
         console.log(`Verify link: ${env.SERVER_URL}/api/auth/verify?token=${token}`);
 
         return res.status(202).json(acceptedResponse);
@@ -114,16 +112,12 @@ export const login = async (req: Request, res: Response) => {
             .where(eq(users.email, email))
             .limit(1);
 
-        // Always run a bcrypt comparison, even with no user, so response time
-        // does not reveal whether the address is registered.
         const validPassword = await comparePassword(password, user?.passwordHash ?? DUMMY_HASH);
 
         if (!user || !validPassword) {
             return res.status(401).json({ message: INVALID_CREDENTIALS });
         }
 
-        // Only after the password checks out is it safe to say anything specific:
-        // at this point the caller has proven the account is theirs.
         if (!user.isVerified) {
             return res.status(403).json({
                 message: "Please verify your email address before signing in.",
@@ -161,9 +155,6 @@ export const verifyUser = async (req: Request, res: Response) => {
 
         const tokenHash = hashVerificationToken(parsed.data.token);
 
-        // The UPDATE is the guard: matching on the token, the unverified state and
-        // the expiry in one statement means concurrent requests cannot both pass a
-        // separate check before either writes. Exactly one gets a row back.
         const [verified] = await db
             .update(users)
             .set({
@@ -176,8 +167,6 @@ export const verifyUser = async (req: Request, res: Response) => {
                 and(
                     eq(users.verificationTokenHash, tokenHash),
                     eq(users.isVerified, false),
-                    // A null expiry never satisfies gt(), so rows missing one are
-                    // treated as expired rather than valid forever.
                     gt(users.verificationTokenExpires, new Date()),
                 ),
             )

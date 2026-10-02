@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { orgApplications, users } from "../db/schema";
 import { db } from "../config/db";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { applyOrgSchema, applicationDecisionSchema } from "./orgApplicationSchemas";
 
 
@@ -20,15 +20,14 @@ export const applyOrg = async (req: Request, res: Response) => {
         }
 
         const { description } = parsed.data
-        const user = req.user
+        const user = req.user!
 
-        if (!user) return res.status(401).json({ message: "Unauthorized" })
+        const [alreadyApplied] = await db.select({ id: orgApplications.id }).from(orgApplications)
+            .where(eq(orgApplications.requesterId, user.id)).limit(1)
 
-        const [alreadyApplied] = await db.select({ requesterId: orgApplications.id }).from(orgApplications).where(eq(orgApplications.requesterId, user.id)).limit(1)
+        if (alreadyApplied) return res.status(409).json({ message: "You have already submitted an application" })
 
-        if (alreadyApplied) return res.status(400).json({ message: "already applied" })
-
-        const application = await db.insert(orgApplications).values({
+        const [application] = await db.insert(orgApplications).values({
             description,
             requesterId: user.id,
             status: "pending",
@@ -45,10 +44,12 @@ export const applyOrg = async (req: Request, res: Response) => {
 
 export const myApplication = async (req: Request, res: Response) => {
     try {
-        const user = req.user;
-        if (!user) return res.status(401).json({ message: "Unauthorized" })
+        const user = req.user!
 
-        const [application] = await db.select().from(orgApplications).where(eq(orgApplications.requesterId, user.id))
+        const [application] = await db.select().from(orgApplications)
+            .where(eq(orgApplications.requesterId, user.id))
+            .orderBy(desc(orgApplications.createdAt), desc(orgApplications.id))
+            .limit(1)
 
         if (!application) return res.status(404).json({ message: "No application found" })
 
@@ -63,6 +64,8 @@ export const myApplication = async (req: Request, res: Response) => {
 export const applicationList = async (req: Request, res: Response) => {
     try {
         const applications = await db.select().from(orgApplications)
+            .orderBy(desc(orgApplications.createdAt), desc(orgApplications.id))
+
         res.status(200).json({ success: true, message: "List fetched successfully", applications })
 
     } catch (error) {
@@ -75,9 +78,7 @@ export const applicationList = async (req: Request, res: Response) => {
 export const applicationDecision = async (req: Request, res: Response) => {
     try {
 
-        // req.user is guaranteed by protectRoute; requireRole("admin") on the
-        // route already restricts this handler to admins.
-        const user = req.user!;
+        const user = req.user!
 
         const parsed = applicationDecisionSchema.safeParse(req.body);
         if (!parsed.success) {
@@ -96,26 +97,41 @@ export const applicationDecision = async (req: Request, res: Response) => {
             const [updated] = await tx.update(orgApplications).set({
                 status,
                 reviewerId: user.id,
-                reviewedAt: new Date()
-            }).where(eq(orgApplications.id, applicationId)).returning()
+                reviewedAt: new Date(),
+                updatedAt: new Date(),
+            }).where(and(
+                eq(orgApplications.id, applicationId),
+                eq(orgApplications.status, "pending"),
+            )).returning()
 
-            if (!updated) return null
+            if (!updated) {
+                const [existing] = await tx.select({ id: orgApplications.id }).from(orgApplications)
+                    .where(eq(orgApplications.id, applicationId)).limit(1)
+                return { error: existing ? "already_decided" : "not_found" } as const
+            }
 
             let promotedUser = null
             if (status === "approved") {
-                const [makeOrg] = await tx.update(users).set({ role: "organizer" })
-                    .where(eq(users.id, updated.requesterId)).returning()
-                promotedUser = makeOrg
+                // Only promote buyers, so an admin is never downgraded to organizer.
+                // Return just id/role so password and token hashes never leave the server.
+                const [makeOrg] = await tx.update(users).set({ role: "organizer", updatedAt: new Date() })
+                    .where(and(eq(users.id, updated.requesterId), eq(users.role, "buyer")))
+                    .returning({ id: users.id, role: users.role })
+                promotedUser = makeOrg ?? null
             }
 
             return { updated, promotedUser }
         })
 
-        if (!result) return res.status(404).json({ message: "Application not found" })
+        if ("error" in result) {
+            return result.error === "not_found"
+                ? res.status(404).json({ message: "Application not found" })
+                : res.status(409).json({ message: "This application has already been reviewed" })
+        }
 
         return res.status(200).json({
             success: true,
-            message: status === "approved" ? "Application approved" : "Application status updated",
+            message: status === "approved" ? "Application approved" : "Application rejected",
             application: result.updated,
             user: result.promotedUser,
         })
