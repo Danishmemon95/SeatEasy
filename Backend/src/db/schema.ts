@@ -21,6 +21,8 @@ export const users = pgTable("users", {
     role: userRolesEnum("role").notNull().default("buyer"),
     dob: date("dob"),
     address: text("address"),
+    // The buyer's chosen city (from the city picker). Drives the home page. Null until chosen.
+    city: varchar("city", { length: 100 }),
     isVerified: boolean("is_verified").notNull().default(false),
     verificationTokenHash: varchar("verification_token_hash", { length: 64 }),
     verificationTokenExpires: timestamp("verification_token_expires", { withTimezone: true }),
@@ -118,10 +120,12 @@ export const bookings = pgTable("bookings", {
     screeningId: integer("screening_id").notNull().references(() => screenings.id),
     status: bookingStatusEnum("status").notNull().default("pending"),
     totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("bookings_screening_id_idx").on(table.screeningId),
+    index("bookings_user_id_idx").on(table.userId)
 ])
 
 export const screeningSeats = pgTable("screening_seats", {
@@ -131,6 +135,7 @@ export const screeningSeats = pgTable("screening_seats", {
     bookingId: integer("booking_id").references(() => bookings.id),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     status: seatStatusEnum("status").notNull().default("available"),
+    heldBy: integer("held_by").references(() => users.id),
     heldUntil: timestamp("held_until", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

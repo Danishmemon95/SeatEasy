@@ -37,3 +37,13 @@ export const verifyQuerySchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// PATCH /api/auth/me: profile fields the signed-in user can change. Only the
+// city for now; strict so a stray field (role, email) is a 400, not ignored.
+export const updateMeSchema = z.strictObject({
+    city: z
+        .string()
+        .trim()
+        .min(2, "City must be at least 2 characters")
+        .max(100, "City cannot exceed 100 characters"),
+});

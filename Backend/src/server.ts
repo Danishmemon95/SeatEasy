@@ -9,6 +9,9 @@ import OrgApplicationRoutes from "./Applications/orgApplicationRoutes";
 import venueRoutes from "./Venues/venueRoutes"
 import showRoutes from "./Shows/showRoutes";
 import screeningRoutes from "./Screenings/screeningRoutes";
+import catalogRoutes from "./Catalog/catalogRoutes";
+import holdRoutes from "./Holds/holdRoutes";
+import bookingRoutes from "./Bookings/bookingRoutes";
 
 const app = express();
 
@@ -29,6 +32,10 @@ app.use("/api/application", OrgApplicationRoutes);
 app.use("/api/venues", venueRoutes)
 app.use("/api/shows", showRoutes);
 app.use("/api/screenings", screeningRoutes);
+// Buyer holds live under a screening; the organizer routes above only match /:screeningId[/cancel].
+app.use("/api/screenings/:screeningId/holds", holdRoutes);
+app.use("/api/catalog", catalogRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 app.listen(env.PORT, async () => {
     try {

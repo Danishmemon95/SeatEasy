@@ -14,6 +14,7 @@ declare global {
                 email: string;
                 role: UserRole;
                 isVerified: boolean;
+                city: string | null;
             }
         }
     }
@@ -47,6 +48,7 @@ export const protectRoute = async (req: Request, res: Response, next: NextFuncti
             email: users.email,
             role: users.role,
             isVerified: users.isVerified,
+            city: users.city,
         }).from(users).where(eq(users.id, decoded.userId));
 
         if (!user) {

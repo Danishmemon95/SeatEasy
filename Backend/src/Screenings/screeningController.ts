@@ -13,6 +13,7 @@ import {
 import {
     findOverlappingScreening,
     hasSoldSeats,
+    liveHold,
     lockShow,
     lockVenue,
     SCREENING_BUFFER_MINUTES,
@@ -122,10 +123,16 @@ const loadPricesAndCounts = async (screeningIds: number[]) => {
 
     const [priceRows, countRows] = await Promise.all([
         db.select().from(screeningPrices).where(inArray(screeningPrices.screeningId, screeningIds)),
-        db.select({ screeningId: screeningSeats.screeningId, status: screeningSeats.status, n: count() })
+        // Effective status: an expired hold counts as available (lazy expiry).
+        db.select({
+            screeningId: screeningSeats.screeningId,
+            total: count(),
+            booked: sql<number>`count(*) filter (where ${screeningSeats.status} = 'booked')`.mapWith(Number),
+            held: sql<number>`count(*) filter (where ${liveHold()})`.mapWith(Number),
+        })
             .from(screeningSeats)
             .where(inArray(screeningSeats.screeningId, screeningIds))
-            .groupBy(screeningSeats.screeningId, screeningSeats.status),
+            .groupBy(screeningSeats.screeningId),
     ])
 
     for (const id of screeningIds) {
@@ -134,9 +141,12 @@ const loadPricesAndCounts = async (screeningIds: number[]) => {
     }
     for (const row of priceRows) prices.get(row.screeningId)![row.category] = row.price
     for (const row of countRows) {
-        const c = counts.get(row.screeningId)!
-        c[row.status] = row.n
-        c.total += row.n
+        counts.set(row.screeningId, {
+            available: row.total - row.booked - row.held,
+            held: row.held,
+            booked: row.booked,
+            total: row.total,
+        })
     }
     return { prices, counts }
 }

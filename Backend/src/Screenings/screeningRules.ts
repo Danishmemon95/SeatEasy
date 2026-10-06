@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, lt, ne, type SQL } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../config/db";
 import { screenings, screeningSeats, shows, venues } from "../db/schema";
 
@@ -17,6 +17,32 @@ import { screenings, screeningSeats, shows, venues } from "../db/schema";
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const SCREENING_BUFFER_MINUTES = 15;
+
+// ---------------------------------------------------------------------------
+// Seat inventory (screening_seats): holds and effective status
+// ---------------------------------------------------------------------------
+
+/** How long a buyer's hold lasts before the seats are free again. */
+export const HOLD_MINUTES = 10;
+
+/** The most seats one buyer can hold at once for one screening. */
+export const MAX_HELD_SEATS = 10;
+
+/**
+ * A hold that hasn't expired. There is no cleanup job: a `held` row whose
+ * held_until has passed is simply treated as available wherever it is read or
+ * written (lazy expiry). Uses the database clock, like every hold write, so
+ * app and database clocks can never disagree about expiry.
+ */
+export const liveHold = (): SQL =>
+    and(eq(screeningSeats.status, "held"), gt(screeningSeats.heldUntil, sql`now()`))!;
+
+/** A seat's status with expired holds counted as available. */
+export const effectiveSeatStatus = () => sql<"available" | "held" | "booked">`CASE
+    WHEN ${screeningSeats.status} = 'booked' THEN 'booked'
+    WHEN ${liveHold()} THEN 'held'
+    ELSE 'available'
+END`;
 
 const MINUTE_MS = 60 * 1000;
 
@@ -100,9 +126,9 @@ export const findOverlappingScreening = async (
 };
 
 /**
- * Whether any seat in the given screenings is held or booked. Expired holds
- * still count until the booking module adds hold expiry — the conservative
- * choice, since releasing them is that module's job.
+ * Whether any seat in the given screenings is booked or under a live hold.
+ * An expired hold doesn't count, so an abandoned checkout can't lock the
+ * organizer out of editing or deleting a screening.
  */
 export const hasSoldSeats = async (tx: Tx, screeningIds: number[]) => {
     if (screeningIds.length === 0) return false;
@@ -111,7 +137,7 @@ export const hasSoldSeats = async (tx: Tx, screeningIds: number[]) => {
         .from(screeningSeats)
         .where(and(
             inArray(screeningSeats.screeningId, screeningIds),
-            inArray(screeningSeats.status, ["held", "booked"]),
+            or(eq(screeningSeats.status, "booked"), liveHold()),
         ))
         .limit(1);
     return Boolean(sold);

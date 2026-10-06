@@ -7,7 +7,8 @@ import { generateToken } from "../utils/generateToken";
 import { authCookieOptions } from "../utils/cookieOptions";
 import { hashPassword, comparePassword } from "../utils/password";
 import { createVerificationToken, hashVerificationToken } from "../utils/verificationToken";
-import { registerSchema, loginSchema, verifyQuerySchema } from "./authSchemas";
+import { registerSchema, loginSchema, verifyQuerySchema, updateMeSchema } from "./authSchemas";
+import { sendValidationError } from "../utils/validation";
 import { env } from "../config/env";
 
 const INVALID_CREDENTIALS = "Invalid email or password";
@@ -106,6 +107,7 @@ export const login = async (req: Request, res: Response) => {
                 email: users.email,
                 role: users.role,
                 isVerified: users.isVerified,
+                city: users.city,
                 passwordHash: users.passwordHash,
             })
             .from(users)
@@ -176,6 +178,7 @@ export const verifyUser = async (req: Request, res: Response) => {
                 email: users.email,
                 role: users.role,
                 isVerified: users.isVerified,
+                city: users.city,
             });
 
         if (!verified) {
@@ -198,6 +201,40 @@ export const verifyUser = async (req: Request, res: Response) => {
 export const checkAuth = async (req: Request, res: Response) => {
     try {
         res.status(200).json({ success: true, message: "Authenticated", user: req.user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
+/**
+ * PATCH /api/auth/me  { city }
+ * Saves the user's city every time they change it in the city picker, and
+ * returns the same user shape as checkAuth so the client can update its
+ * session cache directly.
+ */
+export const updateMe = async (req: Request, res: Response) => {
+    try {
+        const parsed = updateMeSchema.safeParse(req.body);
+        if (!parsed.success) return sendValidationError(res, parsed.error, "Invalid profile details");
+
+        const [user] = await db
+            .update(users)
+            .set({ city: parsed.data.city, updatedAt: new Date() })
+            .where(eq(users.id, req.user!.id))
+            .returning({
+                id: users.id,
+                username: users.username,
+                email: users.email,
+                role: users.role,
+                isVerified: users.isVerified,
+                city: users.city,
+            });
+
+        if (!user) return res.status(401).json({ message: "Unauthorized - Session no longer valid" });
+
+        res.status(200).json({ success: true, message: "Profile updated", user });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Internal server error" });
