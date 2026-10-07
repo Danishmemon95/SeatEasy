@@ -27,8 +27,14 @@ export const getEvents = async (req: Request, res: Response) => {
         const { city, date, type, page, pageSize } = parsed.data
         const now = new Date();
 
-        const dayStart = date ? new Date(`${date}T00:00:00+05:30`) : undefined;
-        const dayEnd = dayStart ? new Date(dayStart.getTime() + DAY_MS) : undefined;
+        // A single IST day, or the weekend range shared with the home page.
+        const range = date === "weekend"
+            ? weekendRange()
+            : date
+                ? { start: new Date(`${date}T00:00:00+05:30`), end: new Date(new Date(`${date}T00:00:00+05:30`).getTime() + DAY_MS) }
+                : undefined;
+        const dayStart = range?.start;
+        const dayEnd = range?.end;
 
         const bookableScreening = and(
             eq(screenings.status, "scheduled"),
