@@ -57,8 +57,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         password,
       }).unwrap();
 
-      const state = location.state as { from?: { pathname?: string } } | null;
-      navigate(state?.from?.pathname ?? '/account', { replace: true });
+      const state = location.state as { from?: { pathname?: string; search?: string } | string } | null;
+      let target = '/';
+      if (state?.from) {
+        if (typeof state.from === 'string') {
+          target = state.from;
+        } else if (state.from.pathname) {
+          target = `${state.from.pathname}${state.from.search ?? ''}`;
+        }
+      }
+      navigate(target, { replace: true });
     } catch {
       // RTK Query maintains the error state accessible via rtkError
     }

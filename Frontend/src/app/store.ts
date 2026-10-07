@@ -4,6 +4,7 @@ import authReducer from '../features/auth/authSlice';
 import { authApi } from '../api/authApi';
 import { applicationApi } from '../api/applicationApi';
 import { catalogApi } from '../api/catalogApi';
+import { buyerApi } from '../api/buyerApi';
 import toastReducer from '../features/toast/toastSlice';
 
 export const store = configureStore({
@@ -13,9 +14,15 @@ export const store = configureStore({
     [authApi.reducerPath]: authApi.reducer,
     [applicationApi.reducerPath]: applicationApi.reducer,
     [catalogApi.reducerPath]: catalogApi.reducer,
+    [buyerApi.reducerPath]: buyerApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(authApi.middleware, applicationApi.middleware, catalogApi.middleware),
+    getDefaultMiddleware().concat(
+      authApi.middleware,
+      applicationApi.middleware,
+      catalogApi.middleware,
+      buyerApi.middleware,
+    ),
   devTools: import.meta.env.DEV,
 });
 

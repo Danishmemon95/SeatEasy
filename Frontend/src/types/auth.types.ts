@@ -6,6 +6,8 @@ export interface User {
   email: string;
   role?: UserRole;
   isVerified?: boolean;
+  /** Persisted city preference (plan §0.1). Null when not yet chosen. */
+  city?: string | null;
 }
 
 export interface LoginPayload {

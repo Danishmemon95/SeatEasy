@@ -4,21 +4,35 @@ import type { Pagination as PaginationMeta } from '../../types/catalog.types';
 import { Button } from './Button';
 
 export interface PaginationProps {
-  pagination: PaginationMeta;
+  pagination?: PaginationMeta;
+  page?: number;
+  totalPages?: number;
+  total?: number;
   onPageChange: (page: number) => void;
   /** Plural noun for the total, e.g. "venues". */
-  noun: string;
+  noun?: string;
 }
 
 /** "Page 2 of 5 · 43 venues" with previous / next. Hidden when everything fits on one page. */
-export const Pagination: React.FC<PaginationProps> = ({ pagination, onPageChange, noun }) => {
-  const { page, totalPages, total } = pagination;
+export const Pagination: React.FC<PaginationProps> = ({
+  pagination,
+  page: propPage,
+  totalPages: propTotalPages,
+  total: propTotal,
+  onPageChange,
+  noun = 'items',
+}) => {
+  const page = pagination?.page ?? propPage ?? 1;
+  const totalPages = pagination?.totalPages ?? propTotalPages ?? 1;
+  const total = pagination?.total ?? propTotal ?? 0;
+
   if (totalPages <= 1) return null;
 
   return (
     <nav aria-label="Pagination" className="flex items-center justify-between gap-4 pt-4">
       <span className="text-[13px] text-[var(--ink-muted)] tabular-nums">
-        Page {page} of {totalPages} · {total} {noun}
+        Page {page} of {totalPages}
+        {total > 0 ? ` · ${total} ${noun}` : ''}
       </span>
       <div className="flex items-center gap-2">
         <Button

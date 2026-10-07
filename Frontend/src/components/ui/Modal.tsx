@@ -8,9 +8,11 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export interface ModalProps {
-  open: boolean;
+  open?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   title: string;
+  description?: string;
   /** While true, Esc and the overlay don't close (a request is in flight). */
   busy?: boolean;
   children: React.ReactNode;
@@ -25,7 +27,18 @@ const sizeClass = { sm: 'sm:max-w-md', md: 'sm:max-w-lg', narrow: 'sm:max-w-[880
  * §9.6: centred on desktop, bottom sheet under `sm`. Warm overlay, focus is
  * trapped inside and returned to the opener on close, Esc closes unless busy.
  */
-export const Modal: React.FC<ModalProps> = ({ open, onClose, title, busy = false, children, footer, size = 'sm' }) => {
+export const Modal: React.FC<ModalProps> = ({
+  open,
+  isOpen,
+  onClose,
+  title,
+  description,
+  busy = false,
+  children,
+  footer,
+  size = 'sm',
+}) => {
+  const isActualOpen = open ?? isOpen ?? false;
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   // Read inside the keydown handler without re-binding it on every change.
@@ -37,7 +50,7 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, busy = false
   });
 
   useEffect(() => {
-    if (!open) return;
+    if (!isActualOpen) return;
     const opener = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
     // Focus the first control, or the panel itself so Tab starts inside.
@@ -74,9 +87,9 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, busy = false
       document.body.style.overflow = previousOverflow;
       opener?.focus?.();
     };
-  }, [open]);
+  }, [isActualOpen]);
 
-  if (!open) return null;
+  if (!isActualOpen) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center sm:p-6">
@@ -102,9 +115,12 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, busy = false
         <div className="sm:hidden mx-auto mt-2.5 h-1 w-10 rounded-full bg-[var(--rule-strong)]" aria-hidden="true" />
 
         <div className="flex items-start justify-between gap-4 px-6 pt-5 sm:pt-6">
-          <h2 id={titleId} className="text-[17px] leading-6 font-semibold text-[var(--ink)]">
-            {title}
-          </h2>
+          <div>
+            <h2 id={titleId} className="text-[17px] leading-6 font-semibold text-[var(--ink)]">
+              {title}
+            </h2>
+            {description && <p className="text-[13px] leading-5 text-[var(--ink-muted)] mt-1">{description}</p>}
+          </div>
           <button
             type="button"
             onClick={onClose}

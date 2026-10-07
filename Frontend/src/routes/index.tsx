@@ -10,6 +10,7 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicOnlyRoute } from './PublicOnlyRoute';
 
+import { SiteLayout } from '../components/layout/SiteLayout';
 import { AuthedLayout } from '../components/layout/AuthedLayout';
 import { OrganizerShell } from '../components/layout/OrganizerShell';
 import { AdminShell } from '../components/layout/AdminShell';
@@ -17,6 +18,34 @@ import { AdminShell } from '../components/layout/AdminShell';
 import { ApplyForOrganizationPage } from '../pages/ApplyForOrganizationPage';
 import { AdminApplicationsPage } from '../pages/admin/AdminApplicationsPage';
 import { OrganizerDashboardPage } from '../pages/organizer/OrganizerDashboardPage';
+
+/*
+ * Buyer pages are lazy-loaded so the catalog stays light.
+ */
+const buyerPage =
+  (
+    name:
+      | 'HomePage'
+      | 'ExplorePage'
+      | 'EventPage'
+      | 'SeatMapPage'
+      | 'CheckoutPage'
+      | 'MyBookingsPage'
+      | 'TicketPage',
+  ) =>
+  async () => {
+    const pages = {
+      HomePage: () => import('../pages/buyer/HomePage'),
+      ExplorePage: () => import('../pages/buyer/ExplorePage'),
+      EventPage: () => import('../pages/buyer/EventPage'),
+      SeatMapPage: () => import('../pages/buyer/SeatMapPage'),
+      CheckoutPage: () => import('../pages/buyer/CheckoutPage'),
+      MyBookingsPage: () => import('../pages/buyer/MyBookingsPage'),
+      TicketPage: () => import('../pages/buyer/TicketPage'),
+    };
+    const mod = (await pages[name]()) as Record<string, React.ComponentType>;
+    return { Component: mod[name] };
+  };
 
 /*
  * Catalog pages are lazy-loaded so the organizer bundle stays out of buyer
@@ -66,7 +95,26 @@ export const router = createBrowserRouter([
     // Shown if the first page load lands on a lazy route before its module arrives.
     hydrateFallbackElement: <RouteFallback />,
     children: [
-      { index: true, element: <Navigate to="/account" replace /> },
+      // Buyer surface wrapped in SiteLayout (with persistent AppHeader & City button)
+      {
+        element: <SiteLayout />,
+        children: [
+          { index: true, lazy: buyerPage('HomePage') },
+          { path: 'explore', lazy: buyerPage('ExplorePage') },
+          { path: 'events/:showId', lazy: buyerPage('EventPage') },
+          { path: 'screenings/:screeningId', lazy: buyerPage('SeatMapPage') },
+
+          // Authenticated buyer flows
+          {
+            element: <ProtectedRoute />,
+            children: [
+              { path: 'checkout/:screeningId', lazy: buyerPage('CheckoutPage') },
+              { path: 'bookings', lazy: buyerPage('MyBookingsPage') },
+              { path: 'bookings/:bookingId', lazy: buyerPage('TicketPage') },
+            ],
+          },
+        ],
+      },
 
       // Public: the verification link must work while signed out.
       { path: 'verify', element: <VerifyEmailPage /> },

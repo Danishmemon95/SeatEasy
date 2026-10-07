@@ -6,13 +6,13 @@ import { Button } from './Button';
 import { EmptyState } from './EmptyState';
 
 export interface QueryErrorStateProps {
-  error: unknown;
+  error?: unknown;
   onRetry?: () => void;
   /** What a 404 means here, e.g. "venue". */
-  noun: string;
+  noun?: string;
   /** Where the "not found" state links back to. */
-  backTo: string;
-  backLabel: string;
+  backTo?: string;
+  backLabel?: string;
 }
 
 /**
@@ -20,7 +20,13 @@ export interface QueryErrorStateProps {
  * (this also covers another organizer's ids). Anything else shows the message
  * with a Retry.
  */
-export const QueryErrorState: React.FC<QueryErrorStateProps> = ({ error, onRetry, noun, backTo, backLabel }) => {
+export const QueryErrorState: React.FC<QueryErrorStateProps> = ({
+  error,
+  onRetry,
+  noun = 'item',
+  backTo = '/',
+  backLabel = 'Back',
+}) => {
   const navigate = useNavigate();
 
   if (getErrorStatus(error) === 404) {

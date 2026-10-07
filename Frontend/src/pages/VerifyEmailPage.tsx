@@ -28,7 +28,7 @@ export const VerifyEmailPage: React.FC = () => {
       : null;
 
   // Drop the token from the URL on the way out so it is not left in history.
-  const onNavigateHome = () => navigate(data ? '/account' : '/login', { replace: true });
+  const onNavigateHome = () => navigate(data ? '/' : '/login', { replace: true });
 
   return (
     <AuthLayout>

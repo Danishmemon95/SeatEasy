@@ -10,3 +10,5 @@ export const useDocumentTitle = (title: string) => {
     };
   }, [title]);
 };
+
+export const useAppTitle = useDocumentTitle;
