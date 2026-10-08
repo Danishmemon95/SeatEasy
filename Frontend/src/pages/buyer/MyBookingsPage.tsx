@@ -73,7 +73,7 @@ export function MyBookingsPage() {
           <button
             key={s}
             type="button"
-            onClick={() => { setStatusChoice(s); setPage(1); }}
+            onClick={() => setStatusChoice(s)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
               statusChoice === s
                 ? 'bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)]'

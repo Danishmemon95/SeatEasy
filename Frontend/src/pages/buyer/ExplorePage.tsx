@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useGetCatalogEventsQuery } from '../../api/buyerApi';
 import { useCurrentCity } from '../../app/useCurrentCity';
 import { useChoiceParam, usePageParam } from '../../app/urlState';
@@ -65,6 +66,7 @@ export function ExplorePage() {
   // SiteLayout only renders this page once a city is chosen.
   const city = currentCity!;
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [, setSearchParams] = useSearchParams();
   const [page, setPage] = usePageParam();
   const [dateChoice, setDateChoice] = useChoiceParam('date', DATE_CHOICES);
   const [typeChoice, setTypeChoice] = useChoiceParam('type', TYPE_CHOICES);
@@ -85,10 +87,16 @@ export function ExplorePage() {
 
   const hasFilters = dateChoice !== 'any' || typeChoice !== 'all';
 
+  // One URL update: back-to-back setSearchParams calls each build from the
+  // last-rendered URL, so only the final one would stick.
   const clearFilters = () => {
-    setDateChoice('any');
-    setTypeChoice('all');
-    setPage(1);
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.delete('date');
+      params.delete('type');
+      params.delete('page');
+      return params;
+    });
   };
 
   return (
@@ -122,7 +130,7 @@ export function ExplorePage() {
             <button
               key={d}
               type="button"
-              onClick={() => { setDateChoice(d); setPage(1); }}
+              onClick={() => setDateChoice(d)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
                 dateChoice === d
                   ? 'bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)]'
@@ -141,7 +149,7 @@ export function ExplorePage() {
             <button
               key={t}
               type="button"
-              onClick={() => { setTypeChoice(t); setPage(1); }}
+              onClick={() => setTypeChoice(t)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
                 typeChoice === t
                   ? 'bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)]'
