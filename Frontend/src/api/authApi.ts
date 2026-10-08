@@ -16,7 +16,18 @@ export const authApi = createApi({
   endpoints: (builder) => ({
     // GET /api/auth/checkAuth
     checkAuth: builder.query<CheckAuthResponse, void>({
-      query: () => '/auth/checkAuth',
+      // A 401 is a real answer ("signed out"), so it is stored as data, not as an
+      // error. RTK Query refetches an errored query whenever a new component
+      // subscribes; with a 401 left as an error, every page mount re-ran
+      // checkAuth, flipped isInitialized off while pending, unmounted the page,
+      // and remounted it when the 401 came back — forever.
+      async queryFn(_arg, api, extraOptions) {
+        const result = await baseQuery('/auth/checkAuth', api, extraOptions);
+        if (result.error?.status === 401) {
+          return { data: { success: false, message: 'Not authenticated', user: null } };
+        }
+        return result.error ? { error: result.error } : { data: result.data as CheckAuthResponse };
+      },
       providesTags: ['User'],
     }),
 

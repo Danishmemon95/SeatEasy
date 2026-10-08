@@ -48,7 +48,8 @@ export interface ApiFieldError {
 export interface CheckAuthResponse {
   success: boolean;
   message: string;
-  user: User;
+  /** null when signed out (checkAuth maps the 401 to this). */
+  user: User | null;
 }
 
 export interface VerifyResponse {

@@ -31,8 +31,9 @@ export const useAuth = (): AuthContext => {
   return {
     user,
     isAuthenticated: isSuccess && Boolean(data.user),
-    // Settled means the request finished, either way — a 401 is a real answer
-    // ("nobody is signed in"), not an undecided state.
+    // Settled means the request finished, either way. A 401 arrives as data
+    // with user: null (see checkAuth), so this stays true across refetches;
+    // isError only covers network/server failures.
     //
     // Deliberately not keyed on isUninitialized: a caller that hides its
     // children while waiting unsubscribes them, RTK Query resets the entry to
