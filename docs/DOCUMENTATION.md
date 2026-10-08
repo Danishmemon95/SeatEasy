@@ -68,7 +68,7 @@ Beyond those goals the code aims for security that holds up in production (enume
 | Real payments (Razorpay, test mode) | 📝 Planned: [`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md) |
 | Email delivery (verify, resend, password reset, booking mails) | 📝 Planned: [`docs/email-plan.md`](email-plan.md). Today, verification links are only logged to the server console. |
 | Automated tests (including the hold/booking race tests) | ❌ None yet |
-| Deployment (Render) | ❌ Not configured |
+| Deployment: Vercel (frontend) + Render (backend) + Neon (Postgres) | 📝 Planned: [`docs/deployment-plan.md`](deployment-plan.md) |
 
 ---
 
@@ -1454,7 +1454,7 @@ These are the known issues in the current code, useful when picking up work.
 | 12 | Frontend | Analytics and Admin Users are still "Soon". The dashboard's checklist judges the screening and publish steps by the newest event only (no cross-event screening count in the API). The venue picker when scheduling loads at most 100 venues. |
 | 13 | Frontend | Dark-mode tokens exist, but there is no theme toggle. |
 | 14 | Quality | No automated tests (backend or frontend). No CI. |
-| 15 | Ops | No deployment config. Cross-domain cookies need `sameSite`/CORS changes once the frontend and backend run on different domains. |
+| 15 | Ops | No deployment config yet. Planned in `docs/deployment-plan.md`: Vercel forwards `/api` to Render, so cookies stay first-party. `trust proxy` must be re-checked behind two proxies. |
 | 16 | Ops | No structured logging, request ids or health endpoint. A failed DB check at boot is logged but not fatal. |
 
 ---
@@ -1471,7 +1471,7 @@ This is a suggested order. Each step builds on the previous one.
 **Next**
 
 4. **Email** ([`docs/email-plan.md`](email-plan.md)):
-   - M1: mail layer (SMTP via nodemailer, console fallback)
+   - M1: mail layer: Brevo's HTTPS API (Render's free plan blocks SMTP), a console fallback, and a daily send cap
    - M2: verification mail and resend
    - M3: forgot/reset/change password, with session invalidation
    - M4: the frontend pages
@@ -1488,11 +1488,14 @@ This is a suggested order. Each step builds on the previous one.
 
 **After that**
 
-7. **Deployment:**
-   - Render (backend and Postgres) and a static frontend host
-   - cross-site cookie settings (`sameSite: "none"`, `secure`) and CORS
-   - a health endpoint
-   - the Razorpay webhook URL pointed at production
+7. **Deployment** ([`docs/deployment-plan.md`](deployment-plan.md)):
+   - Vercel for the frontend, forwarding `/api` to the backend so the cookie stays first-party and needs no `sameSite` change
+   - Render (Singapore) for the backend
+   - Neon (Singapore) for Postgres
+   - a database-free `/api/health` route, pinged by UptimeRobot
+   - the Razorpay webhook pointed straight at Render
+
+   This can go live before email and payments.
 8. **Cleanup of §16:**
    - the double header on Account/Apply
    - re-applying after a rejection
@@ -1518,5 +1521,6 @@ This is a suggested order. Each step builds on the previous one.
 | [`Frontend/docs/buyer-frontend-plan.md`](../Frontend/docs/buyer-frontend-plan.md) | Buyer UI: home, explore, seat map, checkout, bookings (implemented) |
 | [`docs/email-plan.md`](email-plan.md) | Email: verification, resend, password reset/change, booking mails (planned) |
 | [`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md) | Razorpay test-mode payments, webhook, refunds (planned) |
+| [`docs/deployment-plan.md`](deployment-plan.md) | Vercel + Render + Neon deployment, keep-alive, smoke test (planned) |
 | `Backend/src/db/schema.ts` | The authoritative data model |
 | `Backend/src/Screenings/screeningRules.ts` | The locking convention and scheduling rules |

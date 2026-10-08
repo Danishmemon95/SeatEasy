@@ -18,28 +18,35 @@ is built once, but they ship with the payments plan (`docs/razorpay-payments-pla
 
 ## 0. What I need from you
 
-| Item | Why | Example |
+**Provider: Brevo, through its HTTPS API (not SMTP).** The backend runs on
+Render's free plan (`docs/deployment-plan.md`), and Render's free plan blocks
+outbound SMTP ports. HTTPS works. Brevo's free plan sends about 300 emails a
+day, and it can send from a single verified address (your Gmail) without
+owning a domain.
+
+| Item | Where to find it | Goes in |
 | :--- | :--- | :--- |
-| Provider choice | Decides the SMTP values below | Gmail with an app password, Brevo, Resend, or Mailtrap (sandbox, nothing reaches real inboxes) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | Connection | `smtp.gmail.com`, `465`, `true` |
-| `SMTP_USER`, `SMTP_PASS` | Login | For Gmail: the address, plus a 16-character **app password** (requires 2-step verification). Never the normal account password. |
-| `MAIL_FROM` | The sender people see | `SeatEase <no-reply@yourdomain>`; for Gmail it must be the same address as `SMTP_USER` |
+| `BREVO_API_KEY` | Brevo → SMTP & API → **API keys** (not the SMTP key) | `Backend/.env` locally; the Render env vars in production |
+| `MAIL_FROM_EMAIL` | The address you verify under Brevo → Senders | Same |
+| `MAIL_FROM_NAME` | The name people see, e.g. `SeatEase` | Same |
 
-Put these in `Backend/.env` yourself. Don't paste the password into chat.
+Put these in the env files yourself. Don't paste the API key into chat.
 
-**Recommendation:** Mailtrap's sandbox while building (every mail is captured in
-its web inbox, so testing can't spam anyone), then Gmail or Brevo for the demo.
-Gmail's limit (about 500 a day) is plenty for a demo.
+**Deliverability caveat:** mail "from" a `@gmail.com` address sent through
+Brevo can land in spam, because Brevo isn't Gmail's own server. That's fine for
+a demo. A domain of your own (with Brevo's DNS records) fixes it later; see §8.
 
 ---
 
 ## 1. Decisions (defaults; change any before we start)
 
-1. **One mail layer, SMTP via `nodemailer`.** Any provider above works with no
-   code change, only `.env`.
+1. **One mail layer that calls Brevo's HTTPS API** (`POST https://api.brevo.com/v3/smtp/email`, `api-key` header)
+   with Node's built-in `fetch`. No `nodemailer` and no Brevo SDK: it's one
+   JSON request. A provider change later (Resend, Mailtrap) touches only this
+   one function.
 2. **Console fallback.** `MAIL_TRANSPORT=console` (the default in development)
    logs the mail, with its links, instead of sending. That way the project keeps
-   working with no SMTP account, and tests never send mail.
+   working without a Brevo key, and tests never send mail.
 3. **Send after commit, never inside a transaction.** A failed send is logged
    and never fails the request: the user can always use "resend". No
    outbox/queue table for now (see §8).
@@ -53,6 +60,10 @@ Gmail's limit (about 500 a day) is plenty for a demo.
    `password_changed_at` column; `protectRoute` rejects a JWT issued before it.
 8. **A completed reset also verifies the email.** Opening a link sent to that
    inbox proves the user owns the address.
+9. **Daily send cap: 250 emails, below Brevo's ~300.** Past the cap, account
+   mails are skipped and logged, so a flood never hits Brevo's limit or gets
+   the key flagged. The user sees the normal message and can retry tomorrow.
+   This sits on top of the per-IP and per-email limiters.
 
 ---
 
@@ -62,21 +73,27 @@ Gmail's limit (about 500 a day) is plenty for a demo.
 
 | File | Job |
 | :--- | :--- |
-| `mailer.ts` | Creates the transport once from `env`: SMTP, or console. Exposes `sendMail({ to, subject, html, text })`. Catches and logs errors itself; it never throws to callers. |
+| `mailer.ts` | Exposes `sendMail({ to, subject, html, text })`. With `brevo`, it POSTs `{ sender: { email, name }, to: [{ email }], subject, htmlContent, textContent }` to Brevo with a 10 s timeout (`AbortSignal.timeout`). With `console`, it prints the mail. Logs any non-2xx response with Brevo's error body and the recipient, never the API key. Never throws to callers. |
+| `sendCap.ts` | The daily cap from decision 9: an in-memory counter that resets at midnight IST. Render runs a single always-on process, so in-memory is accurate there; it resets on restart, which only makes the cap more lenient. `sendMail` checks it first. |
 | `layout.ts` | One shared HTML shell: logo wordmark, content slot, footer. Table layout with inline styles, because email clients ignore `<style>` and CSS variables. Brand colors are copied as hex from `design.md`. |
 | `templates/*.ts` | One function per mail, returning `{ subject, html, text }`. Always include a plain-text version. |
 
 **`env.ts` additions** (zod, same fail-fast style):
-- `MAIL_TRANSPORT`: `smtp | console`, default `console`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`: required **only** when the transport is `smtp` (a zod `superRefine`), so a half-filled config crashes at boot rather than at the first send.
+- `MAIL_TRANSPORT`: `brevo | console`, default `console`
+- `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`: required **only** when the transport is `brevo` (a zod `superRefine`), so a half-filled config crashes at boot rather than at the first send.
+- `MAIL_DAILY_CAP`: default `250`
 
 Add the same keys to `.env.example`, with comments.
 
-**Boot check:** with SMTP, call `transporter.verify()` at startup and log the
-result. Like the DB check, don't make it fatal.
+**Boot check:** with Brevo, call `GET https://api.brevo.com/v3/account` once at
+startup and log whether the key works. Like the DB check, don't make it fatal.
 
-**Done when:** one test send arrives in the Mailtrap inbox, and with
-`MAIL_TRANSPORT=console` the mail is printed instead.
+**Done when:**
+- one test send to your own inbox arrives, and Brevo's **Transactional → Logs**
+  shows it as delivered
+- with `MAIL_TRANSPORT=console`, the mail is printed instead
+- a wrong API key logs a clear error, and the request that triggered the mail
+  still succeeds
 
 ---
 
@@ -170,22 +187,30 @@ A QR code is out of scope (as in the buyer plan). The booking reference is the t
 
 - Unit-test each template function: subject plus key fields present, no `undefined` in the output.
 - Run the flows with `MAIL_TRANSPORT=console` and read the printed links.
-- Run the real flows against Mailtrap: links, rendering in its HTML check, and spam score.
+- Run the real flows through Brevo to your own inbox (Gmail and one other
+  provider, e.g. Outlook). Check that links work, the layout renders, and
+  whether mail lands in spam.
 - Check `202` responses for unknown emails (no enumeration).
+- Set `MAIL_DAILY_CAP=2` locally and trigger three mails. The third should be
+  skipped and logged, and the request should still succeed.
+- **On Render:** after deploying, trigger one mail and confirm it in Brevo's
+  logs. This proves the HTTPS route works where SMTP doesn't.
 
 ## 8. Out of scope (later)
 
 - An outbox table with retries and a worker
-- Bounce and complaint webhooks
+- Bounce and complaint webhooks (Brevo can send these)
 - Email change with re-verification
 - Marketing mails or unsubscribe links
-- A custom sending domain with SPF/DKIM (needed for good deliverability in production, not for a demo)
+- **Your own sending domain:** add Brevo's DKIM/SPF/DMARC DNS records and send
+  from `no-reply@yourdomain`. This is the fix for mail landing in spam. Only
+  `MAIL_FROM_EMAIL` changes.
 
 ## 9. Order and size
 
 | # | Milestone | Size | Depends on |
 | :- | :--- | :--- | :--- |
-| M1 | Mail layer + env | S | Your SMTP values (console mode works without them) |
+| M1 | Mail layer (Brevo API + console) + daily cap + env | S | Your Brevo API key and verified sender (console mode works without them) |
 | M2 | Verification mails + resend | S | M1 |
 | M3 | Forgot/reset/change password + session invalidation | M | M1 |
 | M4 | Frontend pages | M | M2, M3 |
