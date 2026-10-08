@@ -62,11 +62,13 @@ Beyond those goals the code aims for security that holds up in production (enume
 | Events (shows): draft/publish | ✅ Built (backend + frontend) |
 | Screenings: scheduling, pricing, seat inventory | ✅ Built (backend + frontend) |
 | Organizer dashboard: live counts, next-steps checklist | ✅ Built (frontend) |
-| Public browsing for buyers | ❌ Not started |
-| Seat holds, bookings, payment | ❌ Not started (tables exist) |
-| Email delivery | ❌ Verification links are logged to the server console |
+| Public browsing for buyers: city-first home, explore, event page | ✅ Built (backend + frontend) |
+| Seat holds (10 min, max 10 seats) and the per-seat seat map | ✅ Built (backend + frontend) |
+| Bookings with a **mock** payment step, My bookings, ticket page | ✅ Built (backend + frontend) |
+| Real payments (Razorpay, test mode) | 📝 Planned: [`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md) |
+| Email delivery (verify, resend, password reset, booking mails) | 📝 Planned: [`docs/email-plan.md`](email-plan.md). Today, verification links are only logged to the server console. |
+| Automated tests (including the hold/booking race tests) | ❌ None yet |
 | Deployment (Render) | ❌ Not configured |
-| Automated tests | ❌ None yet |
 
 ---
 
@@ -86,7 +88,7 @@ Beyond those goals the code aims for security that holds up in production (enume
 | **Screening / Showtime** | One show at one venue at one time. This is what a buyer actually picks. |
 | **Screening price** | Price for one seat category at one screening. |
 | **Screening seat (inventory)** | One row per seat per screening, holding that seat's price and status (`available` / `held` / `booked`) for that screening. It is the ticket. |
-| **Hold** | A temporary reservation (10–15 min) of a seat while the buyer pays. Planned. |
+| **Hold** | A temporary reservation (10 min) of a seat while the buyer pays. |
 | **Booking** | One payment event covering one or more seats of one screening. Planned. |
 
 ---
@@ -116,7 +118,8 @@ Beyond those goals the code aims for security that holds up in production (enume
 | **Create** a show (event) | ❌ | ✅ (own) | ❌ ¹ |
 | View / edit / publish / delete shows | ❌ | own only | all |
 | Schedule / edit / cancel / delete screenings | ❌ | own shows | all shows ² |
-| Browse published events, book seats | planned | planned | planned |
+| Browse published events (no login needed) | ✅ | ✅ | ✅ |
+| Hold seats, book, view own bookings (verified account) | ✅ | ✅ | ✅ |
 
 ¹ Every venue and show needs an organizer owner, and ownership always comes from the session, never the request body. An admin therefore has no one to create them for.
 ² The screening's venue must still belong to the **show's organizer**, even when an admin schedules it.
@@ -197,22 +200,26 @@ What each step enforces:
 
 After seats are held or booked, a screening's venue, time and prices are frozen, and it can only be **cancelled**.
 
-### 4.4 Buyer: booking (planned; the schema is ready)
+### 4.4 Buyer: booking (built; payment is a mock)
 
 ```mermaid
 flowchart LR
     A[Browse published events<br/>by city] --> B[Pick a screening]
     B --> C[Seat map: pick ≤ 10 seats]
-    C --> D[Seats held 10–15 min<br/>status=held, held_until]
+    C --> D[Seats held 10 min<br/>status=held, held_until]
     D --> E{Paid in time?}
     E -- yes --> F[Booking confirmed<br/>seats → booked]
     E -- no --> G[Hold lapses<br/>seat back to available]
 ```
 
-Business rules already decided:
-- A booking holds **at most 10 seats**.
+Detailed design: [`docs/buyer-flow-plan.md`](buyer-flow-plan.md) (backend) and [`Frontend/docs/buyer-frontend-plan.md`](../Frontend/docs/buyer-frontend-plan.md). Payment is still a mock "Pay" button; Razorpay is planned (§17).
+
+Business rules:
+- Any signed-in, verified user can buy, whatever their role.
+- A buyer holds **at most 10 seats** per screening at once. Adding seats joins the existing hold window instead of restarting it.
+- Booking stays open until the screening starts.
 - **Tickets are non-refundable.**
-- Hold expiry is **lazy**: a hold whose `held_until < NOW()` is treated as expired the next time the seat is read or written. No background job is planned.
+- Hold expiry is **lazy**: a hold whose `held_until < NOW()` is treated as expired the next time the seat is read or written. There is no background job.
 - A `screening_seats` row with `status = booked` and a `booking_id` **is** the ticket. There is no separate tickets table.
 
 ### 4.5 Admin (built)
@@ -859,12 +866,13 @@ Postgres enums are used for every fixed-value field, so the **database itself** 
 | screening_id | int → screenings.id | |
 | seat_id | int → seats.id | |
 | booking_id | int → bookings.id | nullable. Set once booked. |
+| held_by | int → users.id | nullable. The buyer holding the seat, set only while `held`. |
 | price | numeric(10,2) | Copied from `screening_prices` at build time |
 | status | seat_status | default `available` |
 | held_until | timestamptz | Set only while `held` (lazy expiry) |
 | — | UNIQUE | `(screening_id, seat_id)`: one inventory row per seat per screening |
 
-#### `bookings` (for the planned booking module)
+#### `bookings`
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | user_id | int → users.id | |
@@ -955,7 +963,21 @@ Common list envelope: `{ …, "<items>": [...], "pagination": { "page": 1, "page
 | 30 | POST | `/screenings/:screeningId/cancel` | ✅ | organizer, admin |
 | 31 | DELETE | `/screenings/:screeningId` | ✅ | organizer, admin |
 
-For organizers, "organizer, admin" endpoints are further limited to **their own** records (§8.6).
+| 32 | PATCH | `/auth/me` (city) | ✅ | any |
+| 33 | GET | `/catalog/cities` | — | — |
+| 34 | GET | `/catalog/home` | — | — |
+| 35 | GET | `/catalog/events` (city, date incl. `weekend`, type, page) | — | — |
+| 36 | GET | `/catalog/events/:showId` | — | — |
+| 37 | GET | `/catalog/screenings/:screeningId/seats` | — | — |
+| 38 | POST | `/screenings/:screeningId/holds` | ✅ | any |
+| 39 | DELETE | `/screenings/:screeningId/holds` | ✅ | any |
+| 40 | GET | `/screenings/:screeningId/holds/me` | ✅ | any |
+| 41 | POST | `/bookings` | ✅ | any |
+| 42 | GET | `/bookings/me` | ✅ | any |
+| 43 | GET | `/bookings/:bookingId` | ✅ | any (own) |
+| 44 | POST | `/bookings/:bookingId/pay` (mock) | ✅ | any (own) |
+
+For organizers, "organizer, admin" endpoints are further limited to **their own** records (§8.6). Endpoints 33–44 are the buyer flow; request and response shapes are in `docs/buyer-flow-plan.md` and `Frontend/src/types/buyer.types.ts`.
 
 ### 11.2 Auth
 
@@ -1418,14 +1440,14 @@ These are the known issues in the current code, useful when picking up work.
 
 | # | Area | Limitation |
 | :- | :--- | :--- |
-| 1 | Email | Verification links are only logged. No email provider is integrated. |
-| 2 | Email | The logged link points at the **backend** `/api/auth/verify` (returns JSON), not the frontend `/verify` page. |
-| 3 | Auth | No password reset. The "Forgot password?" button does nothing. No resend-verification endpoint (re-registering resends). |
+| 1 | Email | Verification links are only logged. No email provider is integrated. Planned: `docs/email-plan.md`. |
+| 2 | Email | The logged link points at the **backend** `/api/auth/verify` (returns JSON), not the frontend `/verify` page. Fixed by the email plan, M2. |
+| 3 | Auth | No password reset or change. The "Forgot password?" button does nothing. No resend-verification endpoint (re-registering resends). Planned: email plan, M3–M4. |
 | 4 | Applications | A rejected user can't re-apply (409). An application can only be decided once, so a mistaken decision can't be reversed in the app. |
 | 5 | Applications | `GET /application/all` isn't paginated and returns requester ids, not names or emails. |
-| 6 | Buyers | No public endpoints yet: nothing to browse or book. |
-| 7 | Booking | The `bookings` table and seat `held`/`booked` states exist, but no hold, booking or payment endpoints. `hasSoldSeats` treats expired holds as sold until expiry is implemented. |
-| 8 | Screenings | Only seat **counts** are exposed. No per-seat inventory endpoint, which the seat maps need. |
+| 6 | Payments | Payment is a mock "Pay" button: no money flow, no payment record. Planned: `docs/razorpay-payments-plan.md`. |
+| 7 | Booking | No booking confirmation or ticket email. Buyers can't cancel a booking, and an organizer cancelling a screening doesn't refund or notify anyone (confirmed bookings show the screening as cancelled). |
+| 8 | Booking | The hold and booking race conditions (row locks, lazy expiry) have no automated tests yet (buyer plan milestone 5). |
 | 9 | Timezone | The API accepts any offset. The product assumes India (IST) for display. |
 | 10 | DB | `updated_at` isn't trigger-maintained. Code must set it on every update. |
 | 11 | Frontend | `AccountPage` and `ApplyForOrganizationPage` still render inside `AuthLayout`, which has its own brand header, so they show two headers under the global `AppHeader`. |
@@ -1441,26 +1463,47 @@ These are the known issues in the current code, useful when picking up work.
 
 This is a suggested order. Each step builds on the previous one.
 
-1. ~~**Organizer UI for venues, seat layouts, events and screenings.**~~ Done; see `Frontend/docs/venues-events-screenings-plan.md`. Still open from it: a manual end-to-end run against a live backend (§12 of that plan) and the optional bulk seat-category change.
-2. **Public catalog API:**
-   - published events, filterable by city and date
-   - one event's upcoming screenings
-   - one screening's **per-seat** inventory (seat, row, number, category, price, status with lazy hold expiry)
-3. **Seat holds:**
-   - `POST /screenings/:id/holds` with up to 10 seat ids, in one transaction
-   - lock the requested `screening_seats` rows `FOR UPDATE`
-   - reject any seat that is not `available` (after expiring lapsed holds)
-   - set `held` and `held_until = now() + 10–15 min`
-   - a release endpoint
-4. **Bookings:** create a `pending` booking from the caller's holds (one screening per booking), then a mock "mark as paid" step that confirms it and flips its seats to `booked` in the same transaction.
-5. **Buyer UI:** browse, event detail, the seat map (design.md §10: states, legend, timer, conflict recovery, polling), checkout and "My bookings".
-6. **Email delivery:** verification links pointing at the frontend `/verify`, and booking confirmations.
-7. **Hardening:**
-   - fix the gaps in §16
-   - tests, starting with the locking and booking races
-   - CI
+**Done**
+1. ~~Organizer UI for venues, seat layouts, events and screenings.~~ See `Frontend/docs/venues-events-screenings-plan.md`. Still open from it: the optional bulk seat-category change.
+2. ~~Public catalog API, seat holds, bookings with a mock payment.~~ See `docs/buyer-flow-plan.md`.
+3. ~~Buyer UI: city-first home, explore, event page, seat map, checkout with the hold timer, My bookings, ticket.~~ See `Frontend/docs/buyer-frontend-plan.md`.
+
+**Next**
+
+4. **Email** ([`docs/email-plan.md`](email-plan.md)):
+   - M1: mail layer (SMTP via nodemailer, console fallback)
+   - M2: verification mail and resend
+   - M3: forgot/reset/change password, with session invalidation
+   - M4: the frontend pages
+5. **Razorpay payments, test mode** ([`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md)):
+   - P1: `payments` table
+   - P2: server-created orders
+   - P3: signature verify and a shared idempotent confirm, with refund-on-lost-seats
+   - P4: failed attempts
+   - P5: webhook
+   - P6: Checkout.js on the checkout page
+   - P7: booking confirmation, refund and cancellation emails
+   - P8: tests
+6. **Race tests and CI:** the buyer plan's milestone 5 race tests (double hold, overlapping sets, expiry, pay after expiry, the 10-seat limit) plus the payment cases, run in CI on every push.
+
+**After that**
+
+7. **Deployment:**
+   - Render (backend and Postgres) and a static frontend host
+   - cross-site cookie settings (`sameSite: "none"`, `secure`) and CORS
    - a health endpoint
-   - a Render deployment with cross-site cookie configuration
+   - the Razorpay webhook URL pointed at production
+8. **Cleanup of §16:**
+   - the double header on Account/Apply
+   - re-applying after a rejection
+   - a paginated admin applications list with names
+   - the theme toggle
+9. **Product features:**
+   - buyer booking cancellation
+   - automatic refunds when an organizer cancels a screening
+   - organizer analytics (sales per screening, the "Soon" item)
+   - admin user management
+   - QR tickets
 
 ---
 
@@ -1471,5 +1514,9 @@ This is a suggested order. Each step builds on the previous one.
 | [`Frontend/design.md`](../Frontend/design.md) | Full design system: tokens, type, components, seat-map spec, accessibility |
 | [`Frontend/docs/navigation-plan.md`](../Frontend/docs/navigation-plan.md) | The header and section-sidebar navigation (implemented) |
 | [`Frontend/docs/venues-events-screenings-plan.md`](../Frontend/docs/venues-events-screenings-plan.md) | The organizer venue, seat layout, event and screening UI (implemented) |
+| [`docs/buyer-flow-plan.md`](buyer-flow-plan.md) | Buyer backend: public catalog, holds, bookings (implemented except the race tests) |
+| [`Frontend/docs/buyer-frontend-plan.md`](../Frontend/docs/buyer-frontend-plan.md) | Buyer UI: home, explore, seat map, checkout, bookings (implemented) |
+| [`docs/email-plan.md`](email-plan.md) | Email: verification, resend, password reset/change, booking mails (planned) |
+| [`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md) | Razorpay test-mode payments, webhook, refunds (planned) |
 | `Backend/src/db/schema.ts` | The authoritative data model |
 | `Backend/src/Screenings/screeningRules.ts` | The locking convention and scheduling rules |
