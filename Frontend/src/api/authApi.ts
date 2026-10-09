@@ -2,10 +2,14 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQuery } from './baseQuery';
 import type {
   AuthResponse,
+  ChangePasswordPayload,
   CheckAuthResponse,
+  EmailPayload,
   LoginPayload,
+  MessageResponse,
   RegisterPayload,
   RegisterResponse,
+  ResetPasswordPayload,
   VerifyResponse,
 } from '../types/auth.types';
 
@@ -91,6 +95,44 @@ export const authApi = createApi({
         }
       },
     }),
+
+    // POST /api/auth/resend-verification. Always 202 with the same message.
+    resendVerification: builder.mutation<MessageResponse, EmailPayload>({
+      query: (body) => ({ url: '/auth/resend-verification', method: 'POST', body }),
+    }),
+
+    // POST /api/auth/forgot-password. Always 202 with the same message.
+    forgotPassword: builder.mutation<MessageResponse, EmailPayload>({
+      query: (body) => ({ url: '/auth/forgot-password', method: 'POST', body }),
+    }),
+
+    // POST /api/auth/reset-password
+    resetPassword: builder.mutation<MessageResponse, ResetPasswordPayload>({
+      query: (body) => ({ url: '/auth/reset-password', method: 'POST', body }),
+      // A reset signs out every session, including one in this browser, and
+      // the user is sent to /login next. Mark the cached session signed out so
+      // PublicOnlyRoute doesn't bounce them off /login with a dead cookie.
+      async onQueryStarted(_body, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(
+            authApi.util.upsertQueryData('checkAuth', undefined, {
+              success: false,
+              message: 'Not authenticated',
+              user: null,
+            }),
+          );
+        } catch {
+          // A failed reset changes nothing.
+        }
+      },
+    }),
+
+    // PATCH /api/auth/me/password. The server re-issues this device's cookie,
+    // so the session cache stays correct and needs no refetch.
+    changePassword: builder.mutation<MessageResponse, ChangePasswordPayload>({
+      query: (body) => ({ url: '/auth/me/password', method: 'PATCH', body }),
+    }),
   }),
 });
 
@@ -102,6 +144,10 @@ export const {
   useLogoutMutation,
   useVerifyEmailQuery,
   useLazyVerifyEmailQuery,
+  useResendVerificationMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+  useChangePasswordMutation,
 } = authApi;
 
 // The error helpers moved to ./errors so every API slice can share them; they

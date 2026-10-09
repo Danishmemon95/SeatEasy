@@ -6,6 +6,7 @@ import { validateEmail, validateLoginPassword, sanitizeInput } from '../../utils
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
+import { ResendVerificationButton } from './ResendVerificationButton';
 
 export interface LoginFormProps {
   onSwitchToRegister: () => void;
@@ -94,7 +95,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       {isUnverified && (
         <div className="flex items-start gap-3 p-4 rounded-[10px] border border-[var(--warning)]/20 bg-[var(--warning-subtle)]">
           <MailWarning className="w-5 h-5 text-[var(--warning)] shrink-0 mt-0.5" />
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <h3 className="font-sans font-medium text-[14px] text-[var(--ink)]">
               Verify your email to continue
             </h3>
@@ -102,6 +103,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               We sent a verification link to <span className="font-medium">{email}</span>.
               Open it to activate your account, then sign in.
             </p>
+            <ResendVerificationButton email={email} className="mt-2" />
           </div>
         </div>
       )}
@@ -168,6 +170,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           <div className="flex justify-end mt-0.5">
             <button
               type="button"
+              // The typed email rides along in router state (not the URL) to prefill the form.
+              onClick={() => navigate('/forgot-password', { state: { email: email.trim() } })}
               className="text-caption text-[var(--ink-muted)] hover:text-[var(--accent)] link-underline cursor-pointer transition-colors duration-[150ms]"
             >
               FORGOT PASSWORD?

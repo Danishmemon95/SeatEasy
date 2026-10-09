@@ -6,6 +6,7 @@ import { AuthLayout } from '../components/layout/AuthLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { ChangePasswordForm } from '../features/auth/ChangePasswordForm';
 import { LogOut, CheckCircle, ShieldCheck, Ticket, Building2, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
 
 /** The signed-in landing page. Rendered behind ProtectedRoute, so `user` is present. */
@@ -136,6 +137,7 @@ export const AccountPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-2 pt-2 border-t border-[var(--rule)]">
+          <ChangePasswordForm />
           <Button
             variant="secondary"
             size="md"

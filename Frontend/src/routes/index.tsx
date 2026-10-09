@@ -5,6 +5,8 @@ import { App } from '../App';
 import { AuthPage } from '../pages/AuthPage';
 import { AccountPage } from '../pages/AccountPage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { ForbiddenPage } from '../pages/ForbiddenPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -118,6 +120,9 @@ export const router = createBrowserRouter([
 
       // Public: the verification link must work while signed out.
       { path: 'verify', element: <VerifyEmailPage /> },
+      // Public too: a reset signs out every session anyway, and the link may be
+      // opened in a browser that is still signed in.
+      { path: 'reset-password', element: <ResetPasswordPage /> },
       { path: 'forbidden', element: <ForbiddenPage /> },
 
       // Signed-out only.
@@ -126,6 +131,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'login', element: <AuthPage mode="login" /> },
           { path: 'register', element: <AuthPage mode="register" /> },
+          { path: 'forgot-password', element: <ForgotPasswordPage /> },
         ],
       },
 

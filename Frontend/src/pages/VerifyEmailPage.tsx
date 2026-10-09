@@ -1,10 +1,13 @@
 import type React from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useVerifyEmailQuery, getRtkErrorMessage } from '../api/authApi';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { ResendVerificationButton } from '../features/auth/ResendVerificationButton';
 import { CheckCircle2, AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 
 /**
@@ -17,9 +20,10 @@ export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
 
-  const { data, error, isLoading, refetch } = useVerifyEmailQuery(token, {
+  const { data, error, isLoading } = useVerifyEmailQuery(token, {
     skip: !token,
   });
+  const [resendEmail, setResendEmail] = useState('');
 
   const errorMessage = error
     ? getRtkErrorMessage(error)
@@ -99,23 +103,23 @@ export const VerifyEmailPage: React.FC = () => {
               </h1>
               <p className="text-sm text-[var(--ink-secondary)] leading-relaxed">
                 {errorMessage ||
-                  'The verification link you used may have expired or is no longer valid. Please log in or request a new confirmation.'}
+                  'The verification link you used may have expired or is no longer valid.'}{' '}
+                Links expire after 24 hours, and only the newest one works. Enter your email to get a new one.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 pt-2">
+            <div className="flex flex-col gap-3 pt-2">
+              <Input
+                label="Email address"
+                type="email"
+                autoComplete="email"
+                placeholder="e.g. clara@example.com"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+              />
+              <ResendVerificationButton email={resendEmail} variant="primary" />
               <Button
-                variant="secondary"
-                size="md"
-                onClick={() => refetch()}
-                disabled={!token}
-                leftIcon={<RefreshCw className="w-4 h-4" />}
-                className="w-full"
-              >
-                Retry Verification
-              </Button>
-              <Button
-                variant="primary"
+                variant="ghost"
                 size="md"
                 onClick={onNavigateHome}
                 className="w-full"

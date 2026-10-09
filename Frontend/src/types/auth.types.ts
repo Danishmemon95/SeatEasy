@@ -62,3 +62,23 @@ export interface ApiErrorResponse {
   code?: string;
   errors?: ApiFieldError[];
 }
+
+/** Body for resend-verification and forgot-password. */
+export interface EmailPayload {
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  password: string;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+/** Plain `{ message }` answer, e.g. the 202 from resend and forgot-password. */
+export interface MessageResponse {
+  message: string;
+}

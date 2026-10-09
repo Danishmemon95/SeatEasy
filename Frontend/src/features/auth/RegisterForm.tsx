@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, MailCheck, Check, X } from 'lucide-react';
+import { Eye, EyeOff, MailCheck } from 'lucide-react';
 import { useRegisterMutation, getRtkErrorMessage, getFieldErrors } from '../../api/authApi';
 import {
   validateUsername,
   validateEmail,
   validatePassword,
-  evaluatePasswordStrength,
   sanitizeInput,
 } from '../../utils/validation';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { ResendVerificationButton } from './ResendVerificationButton';
 
 export interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -24,6 +25,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [successResponse, setSuccessResponse] = useState<string | null>(null);
+  // The address the success banner's "Resend" goes to: what was submitted, not
+  // whatever the (hidden) field holds now.
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   const [formErrors, setFormErrors] = useState<{
     username?: string;
@@ -36,8 +40,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
     email?: boolean;
     password?: boolean;
   }>({});
-
-  const passwordEvaluation = evaluatePasswordStrength(password);
 
   const validate = () => {
     const userErr = validateUsername(username);
@@ -73,16 +75,18 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
 
     if (!validate()) return;
 
+    const normalizedEmail = sanitizeInput(email).toLowerCase();
     try {
       const result = await registerUser({
         username: sanitizeInput(username),
-        email: sanitizeInput(email).toLowerCase(),
+        email: normalizedEmail,
         password,
       }).unwrap();
 
       // A 202 means "accepted", not "created" — the API deliberately gives the
       // same answer whether or not the address was already registered, so the
       // banner must not claim an account was made. Show the server's wording.
+      setSubmittedEmail(normalizedEmail);
       setSuccessResponse(result.message);
     } catch (err) {
       // Surface per-field messages from the backend schema next to their inputs.
@@ -136,6 +140,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
           >
             Proceed to sign in
           </Button>
+
+          <div className="flex flex-col gap-2 pt-3 border-t border-[var(--success)]/20">
+            <span className="text-[12px] text-[var(--ink-muted)]">Didn't get it? Check spam, or:</span>
+            <ResendVerificationButton email={submittedEmail} label="Resend" variant="ghost" />
+          </div>
         </div>
       ) : (
         <>
@@ -217,57 +226,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
                 required
               />
 
-              {/* Real-time Password Strength Meter */}
-              {password.length > 0 && (
-                <div className="flex flex-col gap-2 p-3 rounded-[6px] bg-[var(--paper-sunken)] border border-[var(--rule)]">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[var(--ink-muted)] font-medium">Security strength:</span>
-                    <span
-                      className="font-medium capitalize"
-                      style={{ color: passwordEvaluation.color }}
-                    >
-                      {passwordEvaluation.label}
-                    </span>
-                  </div>
-
-                  {/* Visual strength bar */}
-                  <div className="grid grid-cols-4 gap-1.5 h-1.5 w-full">
-                    {[1, 2, 3, 4].map((step) => (
-                      <div
-                        key={step}
-                        className="rounded-full h-full transition-all duration-300"
-                        style={{
-                          backgroundColor:
-                            passwordEvaluation.score >= step
-                              ? passwordEvaluation.color
-                              : 'var(--rule)',
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Checklist of security requirements */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1">
-                    {passwordEvaluation.rules.map((rule) => (
-                      <div
-                        key={rule.id}
-                        className={`flex items-center gap-1.5 text-[11px] transition-colors duration-200 ${
-                          rule.passed
-                            ? 'text-[var(--success)] font-medium'
-                            : 'text-[var(--ink-muted)]'
-                        }`}
-                      >
-                        {rule.passed ? (
-                          <Check className="w-3 h-3 text-[var(--success)] shrink-0" />
-                        ) : (
-                          <X className="w-3 h-3 text-[var(--ink-muted)] opacity-60 shrink-0" />
-                        )}
-                        <span>{rule.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <PasswordStrengthMeter password={password} />
             </div>
 
             {/* Primary CTA */}
