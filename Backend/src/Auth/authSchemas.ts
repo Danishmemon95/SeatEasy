@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const passwordSchema = z
+// Shared by register, reset and change password, so the rules can never drift apart.
+export const passwordSchema = z
     .string()
     .min(8, "Password must be at least 8 characters long")
     .max(72, "Password cannot exceed 72 characters")
@@ -8,6 +9,11 @@ const passwordSchema = z
     .regex(/[a-z]/, "Password must contain a lowercase letter")
     .regex(/[0-9]/, "Password must contain a number")
     .regex(/[^A-Za-z0-9]/, "Password must contain a special character");
+
+const emailSchema = z.email("Please enter a valid email address").trim().toLowerCase().max(150);
+
+// Emailed tokens are 32 random bytes as hex.
+const oneTimeTokenSchema = z.string().regex(/^[a-f0-9]{64}$/, "Malformed token");
 
 export const registerSchema = z.object({
     username: z
@@ -19,7 +25,7 @@ export const registerSchema = z.object({
             /^[a-zA-Z0-9_-]+$/,
             "Username can only contain letters, numbers, hyphens, and underscores",
         ),
-    email: z.email("Please enter a valid email address").trim().toLowerCase().max(150),
+    email: emailSchema,
     password: passwordSchema,
 });
 
@@ -47,3 +53,23 @@ export const updateMeSchema = z.strictObject({
         .min(2, "City must be at least 2 characters")
         .max(100, "City cannot exceed 100 characters"),
 });
+
+// POST /api/auth/resend-verification and /forgot-password: just an email.
+export const emailOnlySchema = z.object({ email: emailSchema });
+
+// POST /api/auth/reset-password
+export const resetPasswordSchema = z.object({
+    token: oneTimeTokenSchema,
+    password: passwordSchema,
+});
+
+// PATCH /api/auth/me/password
+export const changePasswordSchema = z
+    .strictObject({
+        currentPassword: z.string().min(1, "Please provide your current password"),
+        newPassword: passwordSchema,
+    })
+    .refine((body) => body.currentPassword !== body.newPassword, {
+        message: "New password must be different from the current one",
+        path: ["newPassword"],
+    });

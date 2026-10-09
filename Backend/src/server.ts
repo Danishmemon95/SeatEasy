@@ -12,6 +12,7 @@ import screeningRoutes from "./Screenings/screeningRoutes";
 import catalogRoutes from "./Catalog/catalogRoutes";
 import holdRoutes from "./Holds/holdRoutes";
 import bookingRoutes from "./Bookings/bookingRoutes";
+import { checkMailTransport } from "./Mail/mailer";
 
 const app = express();
 
@@ -44,4 +45,5 @@ app.listen(env.PORT, async () => {
     } catch (error) {
         console.error("Database connection failed:", error);
     }
+    await checkMailTransport();
 });

@@ -5,6 +5,10 @@ import { eq } from "drizzle-orm";
 import { db } from "../config/db";
 import { env } from "../config/env";
 
+// JWT iat has one-second resolution, so a token issued in the same second as a
+// password change can look up to a second older than it is.
+const IAT_SLACK_MS = 1000;
+
 declare global {
     namespace Express {
         interface Request {
@@ -42,16 +46,27 @@ export const protectRoute = async (req: Request, res: Response, next: NextFuncti
             throw error;
         }
 
-        const [user] = await db.select({
+        const [row] = await db.select({
             id: users.id,
             username: users.username,
             email: users.email,
             role: users.role,
             isVerified: users.isVerified,
             city: users.city,
+            passwordChangedAt: users.passwordChangedAt,
         }).from(users).where(eq(users.id, decoded.userId));
 
-        if (!user) {
+        if (!row) {
+            return res.status(401).json({ message: "Unauthorized - Session no longer valid" });
+        }
+
+        const { passwordChangedAt, ...user } = row;
+
+        // A password reset or change signs out every session issued before it.
+        if (
+            passwordChangedAt &&
+            (decoded.iat === undefined || passwordChangedAt.getTime() - IAT_SLACK_MS > decoded.iat * 1000)
+        ) {
             return res.status(401).json({ message: "Unauthorized - Session no longer valid" });
         }
 

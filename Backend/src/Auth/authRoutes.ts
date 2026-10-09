@@ -1,10 +1,25 @@
 import { Router } from "express";
-import { checkAuth, login, logout, register, updateMe, verifyUser } from "./authController";
+import {
+    changePassword,
+    checkAuth,
+    forgotPassword,
+    login,
+    logout,
+    register,
+    resendVerification,
+    resetPassword,
+    updateMe,
+    verifyUser,
+} from "./authController";
 import { protectRoute } from "../middleware/authMiddleware";
 import {
     authLimiter,
+    changePasswordLimiter,
+    forgotPasswordLimiter,
     loginLimiter,
     registerLimiter,
+    resendVerificationLimiter,
+    resetPasswordLimiter,
     verifyLimiter,
 } from "../middleware/rateLimiters";
 
@@ -22,5 +37,10 @@ router.use(authLimiter);
 router.get("/verify", verifyLimiter, verifyUser);
 router.post("/register", registerLimiter, register);
 router.post("/login", loginLimiter, login);
+router.post("/resend-verification", resendVerificationLimiter, resendVerification);
+router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
+router.post("/reset-password", resetPasswordLimiter, resetPassword);
+// Runs bcrypt on a typed password, so it sits behind the limiters unlike PATCH /me.
+router.patch("/me/password", changePasswordLimiter, protectRoute, changePassword);
 
 export default router;

@@ -26,10 +26,16 @@ export const users = pgTable("users", {
     isVerified: boolean("is_verified").notNull().default(false),
     verificationTokenHash: varchar("verification_token_hash", { length: 64 }),
     verificationTokenExpires: timestamp("verification_token_expires", { withTimezone: true }),
+    // Forgot password: only the sha256 of the emailed token is stored, single use, 30 min.
+    passwordResetTokenHash: varchar("password_reset_token_hash", { length: 64 }),
+    passwordResetExpires: timestamp("password_reset_expires", { withTimezone: true }),
+    // Set on every password reset or change; protectRoute rejects JWTs issued before it.
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("users_verification_token_hash_idx").on(table.verificationTokenHash),
+    index("users_password_reset_token_hash_idx").on(table.passwordResetTokenHash),
 ]);
 
 // Venues belong to the organizer who created them; screenings can only be
