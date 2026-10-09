@@ -1,6 +1,11 @@
 # Plan: Email (verification, password reset, booking mails)
 
-**Status:** planned, not started. Nothing in this plan is built yet.
+**Status:** M1–M4 are built (mail layer, verification and resend,
+forgot/reset/change password, session invalidation, and the frontend pages;
+migration `0010_password_reset`). They were tested in console mode; the first
+real Brevo send is still to do. The optional welcome mail is not built, and the
+booking mails (§6) wait for payments milestone P7. The "Today" paragraph below
+describes the state before this work.
 
 **Today:** no email is sent. `register` prints the verification link to the
 server console (`Backend/src/Auth/authController.ts`), and that link points at
