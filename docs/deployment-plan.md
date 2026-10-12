@@ -48,7 +48,7 @@ Razorpay webhook ──────────► https://<api>.onrender.com/ap
 | Where | Change | Why |
 | :--- | :--- | :--- |
 | Backend: new `GET /api/health` | Returns `{ ok: true }`. **No database query**, no auth, no rate limiter. Mount it before the other routers. | The pinger target. If it queried Neon, Neon would never sleep and would burn its free compute hours. |
-| `Backend/src/server.ts`: `trust proxy` | The chain is browser → Vercel → Render's proxy → app, so `1` may make every user look like a Vercel IP. That puts all users in one rate-limit bucket. After the first deploy, log `req.ip` and `req.ips` once, then set the hop count so `req.ip` is the real client (probably `2`). Remove the log afterwards. | The login and register limiters key on IP |
+| `Backend/src/app.ts`: `trust proxy` | The chain is browser → Vercel → Render's proxy → app, so `1` may make every user look like a Vercel IP. That puts all users in one rate-limit bucket. After the first deploy, log `req.ip` and `req.ips` once, then set the hop count so `req.ip` is the real client (probably `2`). Remove the log afterwards. | The login and register limiters key on IP |
 | `Backend/package.json` | Add `"engines": { "node": "22.x" }` (or 24.x LTS). | Render then uses a known Node version instead of its default. Local Node is 26, so also test the build on the pinned version. |
 | `Frontend/vercel.json` (new) | Rewrites in this order: `/api/(.*)` → `https://<api>.onrender.com/api/$1`, then `/(.*)` → `/index.html`. | The proxy, plus the SPA fallback so deep links like `/bookings/12` don't 404 |
 | Frontend env | `VITE_API_URL=/api` in the Vercel project settings. `baseQuery.ts` already reads it; a relative URL keeps calls same-origin. | |

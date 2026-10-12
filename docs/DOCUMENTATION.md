@@ -66,8 +66,10 @@ Beyond those goals the code aims for security that holds up in production (enume
 | Seat holds (10 min, max 10 seats) and the per-seat seat map | ✅ Built (backend + frontend) |
 | Bookings with a **mock** payment step, My bookings, ticket page | ✅ Built (backend + frontend) |
 | Real payments (Razorpay, test mode) | 📝 Planned: [`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md) |
-| Email delivery (verify, resend, password reset, booking mails) | 📝 Planned: [`docs/email-plan.md`](email-plan.md). Today, verification links are only logged to the server console. |
-| Automated tests (including the hold/booking race tests) | ❌ None yet |
+| Account emails through Brevo: verification, resend, forgot/reset/change password | ✅ Built (backend + frontend). See [`docs/email-plan.md`](email-plan.md). Without a Brevo key, mails are printed to the server console. |
+| Booking emails (confirmation, refund, cancellation) | 📝 Planned with payments milestone P7 |
+| Automated tests: hold and booking rules and races (backend) | ✅ Built: 80 tests, `npm test` in `Backend/`. See [`docs/test-plan.md`](test-plan.md). |
+| Automated tests: auth, organizer rules, catalog, frontend | 📝 Planned: test plan milestones T4–T7 |
 | Deployment: Vercel (frontend) + Render (backend) + Neon (Postgres) | 📝 Planned: [`docs/deployment-plan.md`](deployment-plan.md) |
 
 ---
@@ -144,7 +146,7 @@ sequenceDiagram
     U->>FE: Fill register form
     FE->>API: POST /api/auth/register
     API->>DB: insert user (buyer, unverified, sha256(token))
-    API-->>API: log verify link (email not wired yet)
+    API-->>U: verification email (printed to the console without a Brevo key)
     API-->>FE: 202 "If that email is available, a link has been sent"
     U->>FE: Open /verify?token=…
     FE->>API: GET /api/auth/verify?token=…
@@ -301,6 +303,8 @@ Example: `PUT /api/venues/7`.
 | `dotenv` | 17.x | Loads `.env` |
 | `tsx` (dev) | 4.x | Runs TypeScript directly with file watching (`npm run dev`) |
 | `typescript` (dev) | 7.x | Compiles to `dist/` (`npm run build`) |
+| `vitest` (dev) | 5.x | Test runner (`npm test`) |
+| `supertest` (dev) | — | Calls the Express app in tests without opening a port |
 | Node `crypto` | built-in | Random verification tokens and their SHA-256 hashes |
 
 ### 6.3 Frontend libraries
@@ -340,13 +344,17 @@ SeatEase/
 │   └── DOCUMENTATION.md             this file
 │
 ├── Backend/
-│   ├── package.json                 scripts: dev / build / start
+│   ├── package.json                 scripts: dev / build / start / test / test:races
 │   ├── tsconfig.json                CommonJS, ES2020, strict, src → dist
 │   ├── drizzle.config.ts            drizzle-kit: schema path, ./drizzle output, DATABASE_URL
 │   ├── .env.example                 every required environment variable, documented
-│   ├── drizzle/                     generated SQL migrations 0000…0007 + meta snapshots
+│   ├── .env.test.example            the test environment (a separate *_test database)
+│   ├── vitest.config.mts            loads .env.test, runs test files one at a time
+│   ├── tests/                       hold and booking tests + helpers (see docs/test-plan.md)
+│   ├── drizzle/                     generated SQL migrations 0000…0010 + meta snapshots
 │   └── src/
-│       ├── server.ts                app bootstrap: middleware, route mounting, listen
+│       ├── app.ts                   the Express app: middleware and route mounting (no listen)
+│       ├── server.ts                starts app.ts: listen, database check, mail check
 │       ├── config/
 │       │   ├── env.ts               zod-validated env; exits on bad config
 │       │   └── db.ts                pg Pool + Drizzle instance
@@ -364,12 +372,16 @@ SeatEase/
 │       │   ├── generateToken.ts     sign JWT + set cookie
 │       │   ├── password.ts          bcrypt hash/compare
 │       │   └── verificationToken.ts random token + sha256 hash + 24h expiry
-│       ├── Auth/                    register · verify · login · logout · checkAuth
+│       ├── Auth/                    register · verify · resend · login · logout · checkAuth · forgot/reset/change password
+│       ├── Mail/                    mailer (Brevo HTTPS API or console), daily cap, account mail templates
 │       ├── Applications/            organizer applications + admin decision
 │       ├── Venues/                  venue CRUD (mounts Seats under /:venueId/seats)
 │       ├── Seats/                   seat layout (rows, single seats)
 │       ├── Shows/                   events: CRUD + publish (mounts show screenings)
-│       └── Screenings/              scheduling, pricing, inventory + screeningRules.ts
+│       ├── Screenings/              scheduling, pricing, inventory + screeningRules.ts
+│       ├── Catalog/                 public browsing: cities, home, events, seat map
+│       ├── Holds/                   seat holds + holdRules.ts (lock order, lazy expiry)
+│       └── Bookings/                bookings and the mock payment
 │
 └── Frontend/
     ├── package.json                 scripts: dev / build / lint / preview
@@ -405,7 +417,9 @@ SeatEase/
 
 ## 8. Backend architecture
 
-### 8.1 Boot sequence (`src/server.ts`)
+### 8.1 Boot sequence (`src/app.ts` and `src/server.ts`)
+
+`app.ts` builds and exports the Express app (steps 1–4). `server.ts` imports it and starts it (step 5). They are separate so the tests can drive the app without opening a port.
 
 1. `import { env } from "./config/env"` comes **first**. It validates `process.env` with zod and calls `process.exit(1)` with a readable list of problems if anything is missing or malformed. `JWT_SECRET` must be at least 32 characters.
 2. Create the Express app and set `trust proxy = 1`, so `req.ip` is the real client behind Render's proxy. The rate limiters depend on this.
@@ -419,8 +433,11 @@ SeatEase/
    | `/api/venues` | `Venues/venueRoutes`, which nests `/:venueId/seats` → `Seats/seatRoutes` |
    | `/api/shows` | `Shows/showRoutes`, which nests `/:showId/screenings` → `showScreeningRoutes` |
    | `/api/screenings` | `Screenings/screeningRoutes` |
+   | `/api/screenings/:screeningId/holds` | `Holds/holdRoutes` |
+   | `/api/catalog` | `Catalog/catalogRoutes` |
+   | `/api/bookings` | `Bookings/bookingRoutes` |
 
-5. `listen(PORT)`, then `SELECT NOW()` as a connectivity check (logged, not fatal).
+5. `listen(PORT)`, then `SELECT NOW()` as a connectivity check and a Brevo key check (both logged, not fatal).
 
 ### 8.2 Module pattern
 
@@ -1352,6 +1369,18 @@ npm run dev                   # tsx watch → http://localhost:5000
 | `dev` | `tsx watch src/server.ts` | Development with reload |
 | `build` | `tsc` | Compile to `dist/` |
 | `start` | `node dist/server.js` | Run the compiled server |
+| `test` | `vitest run` | Run the test suite against the test database |
+| `test:races` | `vitest run races` | Run only the hold and booking race tests |
+
+**Running the tests.** They need a separate Postgres database whose name ends in `_test`; the suite truncates every table and refuses to run against any other name.
+
+```bash
+createdb seatease_test
+cp .env.test.example .env.test   # set DATABASE_URL to the test database
+npm test                         # applies the migrations, then runs every test
+```
+
+The tests call the app in-process, so the dev server doesn't need to be running. What is covered and what is still planned: [`docs/test-plan.md`](test-plan.md).
 
 ### 14.3 Environment variables (`Backend/.env`)
 
@@ -1360,7 +1389,12 @@ npm run dev                   # tsx watch → http://localhost:5000
 | `PORT` | no | 5000 | |
 | `NODE_ENV` | no | development | `production` turns on secure cookies and strict rate limits |
 | `CLIENT_URL` | no | http://localhost:5173 | The CORS origin. Must match the frontend exactly. |
-| `SERVER_URL` | no | http://localhost:5000 | Used to build the logged verification link |
+| `SERVER_URL` | no | http://localhost:5000 | The backend's public URL |
+| `MAIL_TRANSPORT` | no | console | `console` prints each mail to the server log. `brevo` sends through Brevo's HTTPS API. |
+| `BREVO_API_KEY` | with `brevo` | — | Brevo → SMTP & API → **API keys**. Starts with `xkeysib-`; the SMTP key (`xsmtpsib-`) is rejected with 401. |
+| `MAIL_FROM_EMAIL` | with `brevo` | — | An address verified under Brevo → Senders. Needs no domain, and can differ from the Brevo login. |
+| `MAIL_FROM_NAME` | with `brevo` | — | The sender name people see |
+| `MAIL_DAILY_CAP` | no | 250 | Mails per day (resets at midnight IST); past it, mails are skipped and logged |
 | `DATABASE_URL` | **yes** | — | `postgresql://user:pass@host:5432/book_tickets` |
 | `JWT_SECRET` | **yes** | — | At least 32 characters |
 
@@ -1377,11 +1411,7 @@ npm run lint                  # oxlint
 
 ### 14.5 Common operations
 
-**Verify an account in development.** Emails aren't sent yet. After registering, the backend console prints:
-```
-Verify link: http://localhost:5000/api/auth/verify?token=<64 hex>
-```
-Open the **frontend** version, `http://localhost:5173/verify?token=<same token>`, so the SPA verifies you and updates its session. Opening the backend URL directly also verifies the account and sets the cookie, but it shows raw JSON.
+**Verify an account in development.** With `MAIL_TRANSPORT=brevo` the verification mail arrives in the inbox. With the default `console`, the backend log prints the mail instead, including its link (`http://localhost:5173/verify?token=<64 hex>`); open that link in the browser.
 
 **Create the first admin.** There is no API for this by design:
 ```sql
@@ -1415,7 +1445,7 @@ The change is picked up on the next request, because `protectRoute` re-reads the
    - Set `updatedAt: new Date()` on every update.
    - Respond with `{ success: true, message, <resource> }` and log unexpected errors before returning 500.
 5. **`XxxRoutes.ts`:** use `protectRoute`, then `requireRole(...)`, then the handler. Use `Router({ mergeParams: true })` for nested resources.
-6. **Mount** the router in `server.ts`.
+6. **Mount** the router in `app.ts`.
 7. Add a comment wherever a rule is non-obvious. Comments in this codebase explain **why**.
 
 ### 15.2 Frontend feature checklist
@@ -1440,20 +1470,20 @@ These are the known issues in the current code, useful when picking up work.
 
 | # | Area | Limitation |
 | :- | :--- | :--- |
-| 1 | Email | Verification links are only logged. No email provider is integrated. Planned: `docs/email-plan.md`. |
-| 2 | Email | The logged link points at the **backend** `/api/auth/verify` (returns JSON), not the frontend `/verify` page. Fixed by the email plan, M2. |
-| 3 | Auth | No password reset or change. The "Forgot password?" button does nothing. No resend-verification endpoint (re-registering resends). Planned: email plan, M3–M4. |
+| 1 | Email | Mail is sent from a single verified address, not an authenticated domain, so it can land in spam. A domain with Brevo's DKIM/SPF/DMARC records fixes that (email plan §8). |
+| 2 | Email | The daily send cap is counted in memory, so a restart resets it. No bounce or complaint handling. |
+| 3 | Docs | The auth API reference in this file predates the email work: resend-verification, forgot/reset password and change password are described in `docs/email-plan.md`, not here. |
 | 4 | Applications | A rejected user can't re-apply (409). An application can only be decided once, so a mistaken decision can't be reversed in the app. |
 | 5 | Applications | `GET /application/all` isn't paginated and returns requester ids, not names or emails. |
 | 6 | Payments | Payment is a mock "Pay" button: no money flow, no payment record. Planned: `docs/razorpay-payments-plan.md`. |
 | 7 | Booking | No booking confirmation or ticket email. Buyers can't cancel a booking, and an organizer cancelling a screening doesn't refund or notify anyone (confirmed bookings show the screening as cancelled). |
-| 8 | Booking | The hold and booking race conditions (row locks, lazy expiry) have no automated tests yet (buyer plan milestone 5). |
+| 8 | Booking | Known bug, found by the tests: when a checkout replaces an earlier pending booking whose hold had expired, the expired seats stay linked to the cancelled booking, so it still lists them in My bookings and on its ticket page. The seats themselves are free and can be held by anyone. Test G5 in `Backend/tests/bookings.test.ts` is marked `it.fails` until this is fixed. |
 | 9 | Timezone | The API accepts any offset. The product assumes India (IST) for display. |
 | 10 | DB | `updated_at` isn't trigger-maintained. Code must set it on every update. |
 | 11 | Frontend | `AccountPage` and `ApplyForOrganizationPage` still render inside `AuthLayout`, which has its own brand header, so they show two headers under the global `AppHeader`. |
 | 12 | Frontend | Analytics and Admin Users are still "Soon". The dashboard's checklist judges the screening and publish steps by the newest event only (no cross-event screening count in the API). The venue picker when scheduling loads at most 100 venues. |
 | 13 | Frontend | Dark-mode tokens exist, but there is no theme toggle. |
-| 14 | Quality | No automated tests (backend or frontend). No CI. |
+| 14 | Quality | Tests cover holds, bookings and payment only (test plan T0–T3). Auth, the organizer rules, the public catalog and the frontend have none yet (T4–T7). No CI. |
 | 15 | Ops | No deployment config yet. Planned in `docs/deployment-plan.md`: Vercel forwards `/api` to Render, so cookies stay first-party. `trust proxy` must be re-checked behind two proxies. |
 | 16 | Ops | No structured logging, request ids or health endpoint. A failed DB check at boot is logged but not fatal. |
 
@@ -1468,14 +1498,12 @@ This is a suggested order. Each step builds on the previous one.
 2. ~~Public catalog API, seat holds, bookings with a mock payment.~~ See `docs/buyer-flow-plan.md`.
 3. ~~Buyer UI: city-first home, explore, event page, seat map, checkout with the hold timer, My bookings, ticket.~~ See `Frontend/docs/buyer-frontend-plan.md`.
 
+4. ~~Account emails through Brevo: verification and resend, forgot/reset/change password with session invalidation, and the frontend pages.~~ See `docs/email-plan.md` (M1–M4). Booking mails follow with payments.
+5. ~~Tests for hold and booking rules and races.~~ See `docs/test-plan.md` (T0–T3).
+
 **Next**
 
-4. **Email** ([`docs/email-plan.md`](email-plan.md)):
-   - M1: mail layer: Brevo's HTTPS API (Render's free plan blocks SMTP), a console fallback, and a daily send cap
-   - M2: verification mail and resend
-   - M3: forgot/reset/change password, with session invalidation
-   - M4: the frontend pages
-5. **Razorpay payments, test mode** ([`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md)):
+6. **Razorpay payments, test mode** ([`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md)):
    - P1: `payments` table
    - P2: server-created orders
    - P3: signature verify and a shared idempotent confirm, with refund-on-lost-seats
@@ -1484,11 +1512,11 @@ This is a suggested order. Each step builds on the previous one.
    - P6: Checkout.js on the checkout page
    - P7: booking confirmation, refund and cancellation emails
    - P8: tests
-6. **Race tests and CI:** the buyer plan's milestone 5 race tests (double hold, overlapping sets, expiry, pay after expiry, the 10-seat limit) plus the payment cases, run in CI on every push.
+7. **The rest of the tests, and CI** ([`docs/test-plan.md`](test-plan.md)): organizer actions against live holds (T4), auth and mail (T5), organizer and public catalog (T6), frontend (T7), plus the payment cases, run in CI on every push.
 
 **After that**
 
-7. **Deployment** ([`docs/deployment-plan.md`](deployment-plan.md)):
+8. **Deployment** ([`docs/deployment-plan.md`](deployment-plan.md)):
    - Vercel for the frontend, forwarding `/api` to the backend so the cookie stays first-party and needs no `sameSite` change
    - Render (Singapore) for the backend
    - Neon (Singapore) for Postgres
@@ -1496,12 +1524,12 @@ This is a suggested order. Each step builds on the previous one.
    - the Razorpay webhook pointed straight at Render
 
    This can go live before email and payments.
-8. **Cleanup of §16:**
+9. **Cleanup of §16:**
    - the double header on Account/Apply
    - re-applying after a rejection
    - a paginated admin applications list with names
    - the theme toggle
-9. **Product features:**
+10. **Product features:**
    - buyer booking cancellation
    - automatic refunds when an organizer cancels a screening
    - organizer analytics (sales per screening, the "Soon" item)
@@ -1517,10 +1545,11 @@ This is a suggested order. Each step builds on the previous one.
 | [`Frontend/design.md`](../Frontend/design.md) | Full design system: tokens, type, components, seat-map spec, accessibility |
 | [`Frontend/docs/navigation-plan.md`](../Frontend/docs/navigation-plan.md) | The header and section-sidebar navigation (implemented) |
 | [`Frontend/docs/venues-events-screenings-plan.md`](../Frontend/docs/venues-events-screenings-plan.md) | The organizer venue, seat layout, event and screening UI (implemented) |
-| [`docs/buyer-flow-plan.md`](buyer-flow-plan.md) | Buyer backend: public catalog, holds, bookings (implemented except the race tests) |
+| [`docs/buyer-flow-plan.md`](buyer-flow-plan.md) | Buyer backend: public catalog, holds, bookings (implemented; its race tests moved to the test plan) |
 | [`Frontend/docs/buyer-frontend-plan.md`](../Frontend/docs/buyer-frontend-plan.md) | Buyer UI: home, explore, seat map, checkout, bookings (implemented) |
-| [`docs/email-plan.md`](email-plan.md) | Email: verification, resend, password reset/change, booking mails (planned) |
+| [`docs/email-plan.md`](email-plan.md) | Email: verification, resend, password reset/change (implemented); booking mails (planned) |
 | [`docs/razorpay-payments-plan.md`](razorpay-payments-plan.md) | Razorpay test-mode payments, webhook, refunds (planned) |
 | [`docs/deployment-plan.md`](deployment-plan.md) | Vercel + Render + Neon deployment, keep-alive, smoke test (planned) |
+| [`docs/test-plan.md`](test-plan.md) | Automated tests: hold and booking rules and races (implemented); auth, organizer rules, catalog, frontend (planned) |
 | `Backend/src/db/schema.ts` | The authoritative data model |
 | `Backend/src/Screenings/screeningRules.ts` | The locking convention and scheduling rules |

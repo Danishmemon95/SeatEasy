@@ -245,7 +245,7 @@ Depends on mail milestone M1.
 
 ## 10. Milestone P8: Tests and a manual run
 
-Extend the race tests (buyer plan milestone 5) with:
+Extend the race tests (`Backend/tests/bookings.races.test.ts`; see [`test-plan.md`](test-plan.md)) with:
 - verify with a bad signature, then nothing changes
 - verify twice, and the webhook after verify: confirmed exactly once, one mail
 - hold expired before verify: booking cancelled, seats available, refund called

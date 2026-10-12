@@ -1,6 +1,6 @@
 # Plan: Buyer flow (browse → seats → hold → book)
 
-**Status:** Backend milestones 1–4 implemented (schema, public catalog, holds, bookings). Milestone 5 (tests) skipped for now. Frontend (Milestone 6) not started.
+**Status:** Backend milestones 1–4 implemented (schema, public catalog, holds, bookings). Milestone 5 (tests) is built, under [`test-plan.md`](test-plan.md), which replaces §5 below. The frontend is built; see `Frontend/docs/buyer-frontend-plan.md`.
 
 **Decisions made:** any signed-in, verified user can buy (no role check); holds last 10 minutes and booking stays open until the screening starts; at most 10 seats held at once per screening (later bookings may add more); adding seats joins the existing hold window instead of restarting it; no `optionalAuth` (the frontend reads its own holds from `holds/me`).
 **Scope:** Backend (public catalog, holds, bookings) and Frontend (buyer pages, seat map, checkout).
@@ -208,6 +208,9 @@ seats show `booked` on the seat map. Paying after the 10 minutes expire gives
 ---
 
 ## 5. Milestone 5: Tests for the races (before the frontend)
+
+> **Built, and superseded by [`test-plan.md`](test-plan.md)** (T1–T3, in `Backend/tests/`). Two things differ from the list below:
+> the hold timer is not refreshed when seats are added (new seats join the existing window), and 11 seat ids in one request are a 400, not a 409.
 
 The project has no tests yet. Start here, because this is where bugs hide.
 Suggested: **Vitest** + a separate test database (`DATABASE_URL` for tests),

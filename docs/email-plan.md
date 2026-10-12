@@ -2,8 +2,8 @@
 
 **Status:** M1–M4 are built (mail layer, verification and resend,
 forgot/reset/change password, session invalidation, and the frontend pages;
-migration `0010_password_reset`). They were tested in console mode; the first
-real Brevo send is still to do. The optional welcome mail is not built, and the
+migration `0010_password_reset`). They were tested in console mode and with a real
+Brevo send from a single verified sender address (no domain). The optional welcome mail is not built, and the
 booking mails (§6) wait for payments milestone P7. The "Today" paragraph below
 describes the state before this work.
 
