@@ -101,14 +101,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
   const errorMessage = rtkError ? getRtkErrorMessage(rtkError) : null;
 
   return (
-    <div className="w-full flex flex-col gap-6">
+    <div className="w-full flex flex-col gap-4 sm:gap-5">
       {/* Editorial Header */}
-      <div className="flex flex-col gap-1.5">
-        <span className="text-caption text-[var(--accent)]">NEW MEMBERSHIP</span>
-        <h1 className="font-display font-normal text-[38px] sm:text-[42px] tracking-tight leading-tight text-[var(--ink)] whitespace-nowrap">
+      <div className="flex flex-col gap-1">
+        <span className="text-caption text-[var(--accent)] text-[10px] sm:text-[11px]">NEW MEMBERSHIP</span>
+        <h1 className="font-display font-normal text-[26px] sm:text-[30px] md:text-[32px] tracking-tight leading-tight text-[var(--ink)]">
           Create your account
         </h1>
-        <p className="text-[14px] text-[var(--ink-secondary)] leading-relaxed mt-0.5">
+        <p className="text-[13px] sm:text-[14px] text-[var(--ink-secondary)] leading-normal mt-0.5">
           Reserve seats, access digital stubs, and receive live event updates.
         </p>
       </div>
@@ -160,7 +160,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:gap-3.5" noValidate>
             <Input
               label="Username"
               type="text"
@@ -197,7 +197,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
               required
             />
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <Input
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
@@ -233,10 +233,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
             <Button
               type="submit"
               variant="primary"
-              size="lg"
+              size="md"
               isLoading={isLoading}
               disabled={isLoading}
-              className="w-full mt-2"
+              className="w-full mt-1.5 sm:mt-2 h-11 text-[15px]"
             >
               Create account
             </Button>

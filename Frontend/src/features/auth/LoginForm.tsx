@@ -79,14 +79,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   const errorMessage = rtkError && !isUnverified ? getRtkErrorMessage(rtkError) : null;
 
   return (
-    <div className="w-full flex flex-col gap-6">
+    <div className="w-full flex flex-col gap-4 sm:gap-5">
       {/* Editorial Header */}
-      <div className="flex flex-col gap-1.5">
-        <span className="text-caption text-[var(--accent)]">ACCOUNT ACCESS</span>
-        <h1 className="font-display font-normal text-[38px] sm:text-[42px] tracking-tight leading-tight text-[var(--ink)] whitespace-nowrap">
+      <div className="flex flex-col gap-1">
+        <span className="text-caption text-[var(--accent)] text-[10px] sm:text-[11px]">ACCOUNT ACCESS</span>
+        <h1 className="font-display font-normal text-[26px] sm:text-[30px] md:text-[32px] tracking-tight leading-tight text-[var(--ink)]">
           Welcome back
         </h1>
-        <p className="text-[14px] text-[var(--ink-secondary)] leading-relaxed mt-0.5">
+        <p className="text-[13px] sm:text-[14px] text-[var(--ink-secondary)] leading-normal mt-0.5">
           Sign in to manage your tickets, seats, and reservations.
         </p>
       </div>
@@ -120,7 +120,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       )}
 
       {/* Form with Real-time & On-blur Validations */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:gap-3.5" noValidate>
         <Input
           label="Email address"
           type="email"
@@ -183,10 +183,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         <Button
           type="submit"
           variant="primary"
-          size="lg"
+          size="md"
           isLoading={isLoading}
           disabled={isLoading}
-          className="w-full mt-2"
+          className="w-full mt-1.5 sm:mt-2 h-11 text-[15px]"
         >
           Sign in
         </Button>

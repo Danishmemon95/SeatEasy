@@ -19,10 +19,13 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       ? 'transition-[border-color,box-shadow,transform] duration-[150ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:border-[var(--rule-strong)] hover:shadow-[var(--elev-1)] hover:-translate-y-px cursor-pointer'
       : '';
 
+    const hasCustomPadding = /\bp[xytrbl]?-/.test(className);
+    const defaultPadding = hasCustomPadding ? '' : 'p-5 sm:p-6';
+
     return (
       <div
         ref={ref}
-        className={`bg-[var(--paper-raised)] rounded-[16px] p-6 text-[var(--ink)] ${elevationClasses[elevation]} ${interactiveStyles} ${className}`}
+        className={`bg-[var(--paper-raised)] rounded-[16px] ${defaultPadding} text-[var(--ink)] ${elevationClasses[elevation]} ${interactiveStyles} ${className}`}
         {...props}
       >
         {children}

@@ -28,6 +28,11 @@ app.use(cors({
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 
+// Database-free health probe for UptimeRobot keep-alive and Render startup checks
+app.get("/api/health", (_req, res) => {
+    res.json({ ok: true });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/application", OrgApplicationRoutes);
 app.use("/api/venues", venueRoutes)

@@ -34,8 +34,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
 
   return (
     <AuthLayout>
-      <Card className="w-full shadow-sm border-[var(--rule)]">
-        <div className="relative flex border-b border-[var(--rule)] mb-6 gap-6">
+      <Card className="w-full shadow-sm border-[var(--rule)] p-4 sm:p-6">
+        <div className="relative flex border-b border-[var(--rule)] mb-4 sm:mb-5 gap-6">
           {TABS.map((tab) => (
             <Link
               key={tab.mode}
@@ -43,7 +43,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
               replace
               state={location.state}
               onClick={() => dispatch(clearSuccessMessage())}
-              className={`pb-3 text-caption transition-colors cursor-pointer text-center ${
+              className={`pb-2 sm:pb-2.5 text-caption transition-colors cursor-pointer text-center ${
                 mode === tab.mode
                   ? 'text-[var(--accent)] font-medium'
                   : 'text-[var(--ink-muted)] hover:text-[var(--ink-secondary)] font-normal'

@@ -13,8 +13,8 @@ export const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password
   const evaluation = evaluatePasswordStrength(password);
 
   return (
-    <div className="flex flex-col gap-2 p-3 rounded-[6px] bg-[var(--paper-sunken)] border border-[var(--rule)]">
-      <div className="flex items-center justify-between text-xs">
+    <div className="flex flex-col gap-1.5 p-2 sm:p-2.5 rounded-[8px] bg-[var(--paper-sunken)] border border-[var(--rule)]">
+      <div className="flex items-center justify-between text-[11px] leading-tight">
         <span className="text-[var(--ink-muted)] font-medium">Security strength:</span>
         <span className="font-medium capitalize" style={{ color: evaluation.color }}>
           {evaluation.label}
@@ -22,7 +22,7 @@ export const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password
       </div>
 
       {/* Visual strength bar */}
-      <div className="grid grid-cols-4 gap-1.5 h-1.5 w-full">
+      <div className="grid grid-cols-4 gap-1 h-1 w-full">
         {[1, 2, 3, 4].map((step) => (
           <div
             key={step}
@@ -35,11 +35,11 @@ export const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password
       </div>
 
       {/* Checklist of security requirements */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1 mt-0.5">
         {evaluation.rules.map((rule) => (
           <div
             key={rule.id}
-            className={`flex items-center gap-1.5 text-[11px] transition-colors duration-200 ${
+            className={`flex items-center gap-1 text-[11px] leading-tight transition-colors duration-200 ${
               rule.passed ? 'text-[var(--success)] font-medium' : 'text-[var(--ink-muted)]'
             }`}
           >

@@ -8,7 +8,6 @@ import { buyerApi } from '../../api/buyerApi';
 import { useAppDispatch } from '../../app/hooks';
 import { Badge } from '../ui/Badge';
 import {
-  Ticket,
   User,
   LogOut,
   ChevronDown,
@@ -70,9 +69,11 @@ export const AppHeader: React.FC = () => {
         {/* Left: Brand Logo */}
         <div className="flex items-center gap-4 md:gap-6">
           <Link to="/" className="flex items-center gap-2.5 group shrink-0">
-            <div className="w-8 h-8 rounded-[4px] bg-[var(--accent)] flex items-center justify-center text-[var(--accent-ink)] transition-transform group-hover:scale-105">
-              <Ticket className="w-4 h-4 stroke-[1.75]" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="SeatEasy Logo"
+              className="w-8 h-8 object-contain transition-transform group-hover:scale-105"
+            />
             <div className="flex flex-col">
               <span className="font-display font-medium text-lg tracking-tight leading-none text-[var(--ink)]">
                 Seat<span className="italic font-normal text-[var(--accent)]">Easy</span>
